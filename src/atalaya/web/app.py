@@ -31,7 +31,12 @@ def _mark_interrupted_manual_runs() -> None:
             orphans = db.scalars(
                 select(CollectRun).where(CollectRun.finished_at.is_(None))).all()
             for run in orphans:
-                if (run.stats or {}).get("origin") == "manual":
+                origin = (run.stats or {}).get("origin")
+                # "manual": lanzado por un hilo de este proceso → huérfano seguro.
+                # None: run heredado de una versión sin marcado de origen →
+                # se limpia también (transición puntual; el código actual
+                # siempre marca el origen).
+                if origin == "manual" or origin is None:
                     run.finished_at = utcnow()
                     run.ok = False
                     run.stats = {**(run.stats or {}), "interrupted": True}
