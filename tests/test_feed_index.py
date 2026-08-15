@@ -77,3 +77,28 @@ def test_indice_respeta_el_tope_de_flujos(db, fixture_base, monkeypatch):
 
     assert len(called) == Collector._MAX_INDEX_FEEDS
     assert stored == Collector._MAX_INDEX_FEEDS
+
+
+def test_texto_de_content_encoded_cuando_el_sitio_bloquea():
+    """Si la página del artículo no se puede leer, vale el texto del flujo."""
+    from atalaya.collect.extract import text_from_feed_html
+
+    entry = {"content": [{"value": (
+        "<p>Los senadores estadounidenses Ted Cruz y Timothy Michael Kaine "
+        "propusieron incluir sanciones al oro nicaragüense y al Instituto de "
+        "Previsión Social Militar del Ejército.</p>"
+        "<p>Gracias a las alzas históricas del precio del oro, se consolidó "
+        "como el principal producto de exportación de Nicaragua.</p>")}]}
+
+    html = Collector._entry_html(entry)
+    text = text_from_feed_html(html)
+
+    assert text and "Ted Cruz" in text
+    assert "Previsión Social Militar" in text
+    assert "<p>" not in text
+
+
+def test_entrada_sin_content_no_inventa_texto():
+    # description es un teaser, no el artículo: no debe pasar por texto íntegro
+    assert Collector._entry_html({"summary": "Un resumen corto"}) == ""
+    assert Collector._entry_html({}) == ""

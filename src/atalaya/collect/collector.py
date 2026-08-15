@@ -24,7 +24,7 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from atalaya.collect.extract import extract_article, _parse_dt
+from atalaya.collect.extract import extract_article, text_from_feed_html, _parse_dt
 from atalaya.collect.fetcher import PoliteFetcher
 from atalaya.collect.whitelist import (
     geo_filter_ok, looks_like_content_farm, match_source, norm_domain,
@@ -262,6 +262,15 @@ class Collector:
                 max_entries=max_entries)
         return stored
 
+    @staticmethod
+    def _entry_html(entry) -> str:
+        """HTML íntegro que el flujo adjunta a la entrada, si lo trae."""
+        for block in (entry.get("content") or []):
+            value = (block.get("value") or "").strip()
+            if value:
+                return value
+        return ""
+
     def _entry_date(self, entry) -> datetime | None:
         for key in ("published", "updated"):
             if entry.get(key):
@@ -328,6 +337,12 @@ class Collector:
         html = page.text if page else ""
         ext = extract_article(html, link)
         text = ext["text"]
+        if not text:
+            # el sitio bloquea al robot o no se pudo extraer: muchos flujos
+            # traen el texto íntegro del editor en content:encoded
+            text = text_from_feed_html(self._entry_html(entry))
+            if text:
+                self.stats["text_from_feed"] = self.stats.get("text_from_feed", 0) + 1
         published = ext["date"] or feed_date
 
         # §7.4 — fecha real fuera de ventana → rechazo (los flujos reciclan)

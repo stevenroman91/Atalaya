@@ -35,6 +35,25 @@ def extract_article(html: str, url: str) -> dict:
     return out
 
 
+def text_from_feed_html(html: str) -> str | None:
+    """Texto de un fragmento HTML servido por el propio flujo (content:encoded).
+
+    Recurso para las fuentes cuyo sitio bloquea al robot: el editor publica el
+    texto íntegro en su RSS. Sigue siendo texto del medio, no generado — la
+    regla de resúmenes estrictamente extractivos (§7.1) queda intacta.
+    """
+    if not html:
+        return None
+    try:
+        text = trafilatura.extract(
+            html, include_comments=False, favor_precision=True)
+        if text and text.strip():
+            return text.strip()
+    except Exception as exc:
+        log.warning("extracción de fragmento de flujo falló: %s", exc)
+    return None
+
+
 def _parse_dt(value: str) -> datetime | None:
     try:
         dt = dateparser.parse(value)

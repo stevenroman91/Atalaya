@@ -64,9 +64,12 @@ sources:
   - { name: "El Heraldo",         domain: "elheraldo.hn",        origin: HN, covers: [HN], lang: es, type: independiente, rss: null }
 
   # ── Nicaragua ─────────────────────────────────────────────────────────────
-  - { name: "La Prensa Nicaragua", domain: "laprensani.com",     origin: NI, covers: [NI], lang: es, type: independiente, rss: null }
+  # rss confirmado por el operador (atom:link rel="self" del propio flujo)
+  - { name: "La Prensa Nicaragua", domain: "laprensani.com",     origin: NI, covers: [NI], lang: es, type: independiente,
+      rss: "https://www.laprensani.com/feed" }
   - { name: "Confidencial",       domain: "confidencial.digital", origin: NI, covers: [NI], lang: es, type: independiente, rss: null }
-  - { name: "Artículo 66",        domain: "articulo66.com",      origin: NI, covers: [NI], lang: es, type: independiente, rss: null }
+  - { name: "Artículo 66",        domain: "articulo66.com",      origin: NI, covers: [NI], lang: es, type: independiente,
+      rss: "https://www.articulo66.com/feed/" }
   - { name: "100% Noticias",      domain: "100noticias.com.ni",  origin: NI, covers: [NI], lang: es, type: independiente, rss: null }
 
   # ── El Salvador ───────────────────────────────────────────────────────────
