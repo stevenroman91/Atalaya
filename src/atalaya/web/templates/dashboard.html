@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+{% endblock %}
+{% block content %}
+<div class="counters">
+  <div class="counter alert"><span class="num">{{ stats.alerts }}</span>{{ t('alerts_today') }}</div>
+  <div class="counter note"><span class="num">{{ stats.notes }}</span>{{ t('notes_today') }}</div>
+  <div class="counter pending"><span class="num">{{ stats.pending }}</span>{{ t('pending_confirm') }}</div>
+  {% for code, c in stats.by_country.items() %}
+    <div class="counter mini"><span class="num">{{ c.alerts + c.notes }}</span>{{ countries[code].name if code in countries else code }}</div>
+  {% endfor %}
+</div>
+
+<details class="filters" {{ 'open' if query else '' }}>
+  <summary>{{ t('filters') }}</summary>
+  <form method="get" action="/dashboard" class="filterform">
+    <label>{{ t('country') }}
+      <select name="country" multiple size="4">
+        {% for code, c in countries.items() %}
+        <option value="{{ code }}" {{ 'selected' if code in f.countries }}>{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>{{ t('zone') }}
+      <select name="zone">
+        <option value="">{{ t('all') }}</option>
+        {% for zid, z in zones.items() %}
+        <option value="{{ zid }}" {{ 'selected' if f.zone == zid }}>{{ z.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>{{ t('category') }}
+      <select name="category">
+        <option value="">{{ t('all') }}</option>
+        {% for cat in ['crimen_alto_impacto','crimen_bajo_impacto','desastre_natural','operacion_seguridad','manifestacion'] %}
+        <option value="{{ cat }}" {{ 'selected' if f.category == cat }}>{{ t('cat_' + cat) }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>{{ t('level') }}
+      <select name="level">
+        <option value="">{{ t('all') }}</option>
+        <option value="advertencia" {{ 'selected' if f.level == 'advertencia' }}>{{ t('level_advertencia') }}</option>
+        <option value="informativo" {{ 'selected' if f.level == 'informativo' }}>{{ t('level_informativo') }}</option>
+      </select>
+    </label>
+    <label>{{ t('type') }}
+      <select name="type">
+        <option value="">{{ t('all') }}</option>
+        <option value="ALERTA" {{ 'selected' if f.event_type == 'ALERTA' }}>{{ t('event_type_ALERTA') }}</option>
+        <option value="NOTA" {{ 'selected' if f.event_type == 'NOTA' }}>{{ t('event_type_NOTA') }}</option>
+      </select>
+    </label>
+    <label>{{ t('date_from') }}<input type="date" name="date_from" value="{{ query.get('date_from','') }}"></label>
+    <label>{{ t('date_to') }}<input type="date" name="date_to" value="{{ query.get('date_to','') }}"></label>
+    <label>{{ t('search') }}<input type="search" name="q" value="{{ f.q or '' }}" placeholder="{{ t('search_placeholder') }}"></label>
+    <label>&nbsp;
+      <select name="scope">
+        <option value="">{{ t('my_countries') }}</option>
+        <option value="all" {{ 'selected' if query.get('scope') == 'all' }}>{{ t('whole_scope') }}</option>
+      </select>
+    </label>
+    <button type="submit" class="primary">{{ t('apply') }}</button>
+  </form>
+</details>
+
+<div class="dashgrid">
+  <section class="cards">
+    {% if not events %}
+      <p class="empty">{{ t('no_incidents') if not query else t('no_results') }}</p>
+    {% endif %}
+    {% for e in events %}
+    <article class="card {{ 'is-alert' if e.event_type == 'ALERTA' else 'is-note' }} {{ 'is-pending' if e.status == 'pending_confirm' }}">
+      <header>
+        <span class="badge type-{{ e.event_type }}">{{ t('event_type_' + e.event_type) }}</span>
+        {% if e.category %}<span class="badge cat">{{ t('cat_' + e.category) }}</span>{% endif %}
+        {% if e.level %}<span class="badge level-{{ e.level }}">{{ t('level_' + e.level) }}</span>{% endif %}
+        {% if e.is_new %}<span class="badge new">{{ t('new_badge') }}</span>{% endif %}
+        <span class="place">{{ e.country_name }}{% if e.zone_name %} · {{ e.zone_name }}{% endif %}</span>
+      </header>
+      <h3>{{ e.title }}</h3>
+      {% if e.status == 'pending_confirm' %}<p class="pendingnote">⚠ {{ t('to_confirm_note') }}</p>{% endif %}
+      {% if e.summary %}<p class="summary">{{ e.summary }}{% if e.es_only %} <em class="muted">({{ t('summary_es_only') }})</em>{% endif %}</p>{% endif %}
+      {% if e.recommendations %}
+      <div class="recs"><strong>{{ t('recommendations') }}:</strong>
+        <ul>{% for r in e.recommendations %}<li>{{ r }}</li>{% endfor %}</ul>
+      </div>
+      {% endif %}
+      <footer>
+        {% if e.occurred_at %}<span class="date">{{ t('occurred') }}: {{ e.occurred_at }}</span>{% endif %}
+        <span class="srcs">{{ e.n_sources }} {{ t('sources') }}:
+          {% for s in e.sources %}<a href="{{ s.url }}" target="_blank" rel="noopener noreferrer">{{ s.name }}</a>{% if s.state %} <span class="badge state">{{ t('state_media_tag') }}</span>{% endif %}{{ ", " if not loop.last }}{% endfor %}
+        </span>
+      </footer>
+    </article>
+    {% endfor %}
+  </section>
+
+  <aside class="side">
+    <div class="panel">
+      <h4>{{ t('map') }}</h4>
+      <div id="map"></div>
+    </div>
+    <div class="panel">
+      <h4>{{ t('timeline') }}</h4>
+      <div class="timeline">
+        {% set maxv = timeline | map(attribute='alerts') | max %}
+        {% for day in timeline %}
+        <div class="tday" title="{{ day.date }}: {{ day.alerts }} A / {{ day.notes }} N">
+          <div class="tbar alerts" style="height: {{ (day.alerts / (maxv if maxv else 1) * 60) | round(0) }}px"></div>
+          <div class="tbar notes" style="height: {{ (day.notes * 6) if day.notes < 10 else 60 }}px"></div>
+          <span class="tlabel">{{ day.date[8:] }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="panel">
+      <a class="button" href="/dashboard/briefing?format=pdf">{{ t('export_pdf') }} (PDF)</a>
+      <a class="button" href="/dashboard/briefing" target="_blank">HTML</a>
+    </div>
+  </aside>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="/static/dashboard.js"></script>
+{% endblock %}

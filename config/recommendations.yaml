@@ -1,0 +1,21 @@
+# Plantillas de recomendaciones por categoría (solo ALERTA, 1–3 por evento).
+# {lugar} se sustituye por la zona/ciudad del evento. Español canónico —
+# las traducciones fr/en/pt las genera la capa de traducción.
+# §7.7: las recomendaciones se muestran SIEMPRE separadas de los hechos.
+recommendations:
+  crimen_alto_impacto:
+    - "Evitar la zona de {lugar} y sus alrededores hasta nuevo aviso."
+    - "Reforzar la vigilancia en los desplazamientos cercanos a {lugar}."
+    - "Reportar al oficial de seguridad cualquier desplazamiento previsto por la zona."
+  crimen_bajo_impacto:
+    - "Extremar precauciones en {lugar}: evitar exhibir objetos de valor."
+    - "Privilegiar transporte seguro (vehículo oficial o aplicación verificada) en la zona."
+  desastre_natural:
+    - "Seguir las consignas de protección civil locales para {lugar}."
+    - "Verificar rutas alternativas antes de cualquier desplazamiento por la zona."
+  operacion_seguridad:
+    - "Evitar la proximidad inmediata del operativo en {lugar}."
+    - "Prever retrasos y controles en los desplazamientos por la zona."
+  manifestacion:
+    - "Evitar las concentraciones en {lugar} y prever itinerarios alternativos."
+    - "Mantenerse alejado de cualquier aglomeración; las manifestaciones pueden derivar en disturbios."

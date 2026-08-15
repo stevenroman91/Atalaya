@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ t('admin') }}</h2>
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+{% if invite_link %}
+<div class="panel ok"><strong>{{ t('admin_link') }}:</strong> <code>{{ invite_link }}</code></div>
+{% endif %}
+
+<section class="panel">
+  <h3>{{ t('admin_invite_new') }}</h3>
+  <form method="post" action="/admin/invite" class="selectors">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="email" name="email" placeholder="{{ t('email') }}" required>
+    <select name="role">
+      <option value="analista">analista</option>
+      <option value="admin">admin</option>
+    </select>
+    <button type="submit" class="primary">{{ t('admin_invite_new') }}</button>
+  </form>
+</section>
+
+<section class="panel">
+  <h3>{{ t('admin_invitations') }}</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>{{ t('email') }}</th><th>{{ t('admin_role') }}</th><th>{{ t('admin_created') }}</th><th>{{ t('admin_expires') }}</th><th>{{ t('admin_used') }}</th></tr></thead>
+    <tbody>
+    {% for inv in invitations %}
+    <tr><td>{{ inv.email }}</td><td>{{ inv.role }}</td>
+        <td>{{ inv.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+        <td>{{ inv.expires_at.strftime('%Y-%m-%d %H:%M') }}</td>
+        <td>{{ '✔' if inv.used_at else '—' }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</section>
+
+<section class="panel">
+  <h3>{{ t('admin_users') }}</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>{{ t('email') }}</th><th>{{ t('admin_role') }}</th><th>{{ t('prefs_countries') }}</th><th>{{ t('prefs_lang') }}</th><th></th></tr></thead>
+    <tbody>
+    {% for u in users %}
+    <tr class="{{ 'inactive' if not u.active }}">
+      <td>{{ u.email }}</td><td>{{ u.role }}</td>
+      <td>{{ (u.countries or []) | join(', ') }}</td><td>{{ u.lang }}</td>
+      <td>
+        {% if u.id != user.id %}
+        <form method="post" action="/admin/users/{{ u.id }}/toggle" class="inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit" class="linklike">{{ t('admin_activate') if not u.active else t('admin_deactivate') }}</button>
+        </form>
+        {% endif %}
+      </td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</section>
+
+<section class="panel">
+  <h3>{{ t('admin_health') }}</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>{{ t('admin_source') }}</th><th>{{ t('admin_last_ok') }}</th><th>{{ t('admin_failures') }}</th><th>RSS</th></tr></thead>
+    <tbody>
+    {% for s in sources %}
+    <tr class="{{ 'failing' if s.consecutive_failures >= failing_threshold }}">
+      <td>{{ s.name }} <span class="muted">({{ s.domain }})</span></td>
+      <td>{{ s.last_ok_at.strftime('%Y-%m-%d %H:%M') if s.last_ok_at else '—' }}</td>
+      <td>{{ s.consecutive_failures }}{% if s.last_error %} <span class="muted">{{ s.last_error[:80] }}</span>{% endif %}</td>
+      <td>{{ '✔' if s.discovered_rss else '—' }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  <h4>Runs</h4>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Job</th><th>Inicio</th><th>Fin</th><th>OK</th><th>Stats</th></tr></thead>
+    <tbody>
+    {% for r in runs %}
+    <tr><td>{{ r.kind }}</td>
+        <td>{{ r.started_at.strftime('%Y-%m-%d %H:%M') }}</td>
+        <td>{{ r.finished_at.strftime('%Y-%m-%d %H:%M') if r.finished_at else '…' }}</td>
+        <td>{{ '✔' if r.ok else ('✖' if r.ok is false else '…') }}</td>
+        <td class="muted"><code style="font-size:.7rem">{{ r.stats | tojson | truncate(160) }}</code></td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</section>
+{% endblock %}

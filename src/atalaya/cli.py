@@ -1,0 +1,106 @@
+"""CLI de Atalaya.
+
+  atalaya init-db                  aplica las migraciones Alembic
+  atalaya create-admin             crea el admin inicial (ADMIN_EMAIL/ADMIN_PASSWORD)
+  atalaya invite EMAIL [--role r]  crea una invitación y muestra el enlace
+  atalaya collect-daily [--country XX] [--fixture-base URL]
+  atalaya collect-weekly [--country XX] [--fixture-base URL]
+  atalaya monthly [--month YYYY-MM]
+  atalaya translate                regenera traducciones pendientes
+  atalaya serve [--host H] [--port P]
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import logging
+import os
+import sys
+
+
+def _init_db() -> None:
+    from alembic import command
+    from alembic.config import Config
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[2]
+    cfg = Config(str(root / "alembic.ini"))
+    cfg.set_main_option("script_location", str(root / "migrations"))
+    command.upgrade(cfg, "head")
+    print("Base de datos migrada.")
+
+
+def _create_admin() -> None:
+    from atalaya.db import SessionLocal
+    from atalaya.web.auth import create_admin_from_env
+    with SessionLocal() as db:
+        user, created = create_admin_from_env(db)
+        print(f"Admin {'creado' if created else 'ya existente'}: {user.email}")
+
+
+def _invite(email: str, role: str) -> None:
+    from atalaya.db import SessionLocal
+    from atalaya.web.auth import create_invitation
+    with SessionLocal() as db:
+        token = create_invitation(db, email=email, role=role, created_by=None)
+        base = os.environ.get("ATALAYA_BASE_URL", "http://localhost:8000")
+        print(f"Invitación para {email} (rol {role}):\n{base}/auth/invite/{token}")
+
+
+def main(argv: list[str] | None = None) -> int:
+    logging.basicConfig(level=os.environ.get("ATALAYA_LOG_LEVEL", "INFO"),
+                        format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    parser = argparse.ArgumentParser(prog="atalaya")
+    sub = parser.add_subparsers(dest="cmd", required=True)
+
+    sub.add_parser("init-db")
+    sub.add_parser("create-admin")
+    p = sub.add_parser("invite")
+    p.add_argument("email")
+    p.add_argument("--role", default="analista", choices=["admin", "analista"])
+    for name in ("collect-daily", "collect-weekly"):
+        p = sub.add_parser(name)
+        p.add_argument("--country", action="append", dest="countries")
+        p.add_argument("--fixture-base", help="URL base para reescribir peticiones (tests)")
+    p = sub.add_parser("monthly")
+    p.add_argument("--month", help="YYYY-MM (por defecto, el mes anterior)")
+    sub.add_parser("translate")
+    p = sub.add_parser("serve")
+    p.add_argument("--host", default="0.0.0.0")
+    p.add_argument("--port", type=int, default=int(os.environ.get("PORT", 8000)))
+
+    args = parser.parse_args(argv)
+
+    if args.cmd == "init-db":
+        _init_db()
+    elif args.cmd == "create-admin":
+        _create_admin()
+    elif args.cmd == "invite":
+        _invite(args.email, args.role)
+    elif args.cmd in ("collect-daily", "collect-weekly"):
+        from atalaya.collect.fetcher import PoliteFetcher
+        from atalaya.db import SessionLocal
+        from atalaya.jobs.runner import run_daily, run_weekly
+        fetcher = PoliteFetcher(base_url_override=args.fixture_base) if args.fixture_base else None
+        with SessionLocal() as db:
+            fn = run_daily if args.cmd == "collect-daily" else run_weekly
+            run = fn(db, countries=args.countries, fetcher=fetcher)
+            print(json.dumps(run.stats, indent=2, ensure_ascii=False))
+    elif args.cmd == "monthly":
+        from atalaya.db import SessionLocal
+        from atalaya.jobs.runner import run_monthly
+        with SessionLocal() as db:
+            run = run_monthly(db, month=args.month)
+            print(json.dumps(run.stats, indent=2, ensure_ascii=False))
+    elif args.cmd == "translate":
+        from atalaya.db import SessionLocal
+        from atalaya.process.translate import translate_pending
+        with SessionLocal() as db:
+            print(json.dumps(translate_pending(db), indent=2))
+    elif args.cmd == "serve":
+        import uvicorn
+        uvicorn.run("atalaya.web.app:app", host=args.host, port=args.port)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

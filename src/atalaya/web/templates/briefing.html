@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+<meta charset="utf-8">
+<title>{{ t('briefing_title') }}</title>
+<style>
+  body { font-family: Georgia, serif; margin: 2.2cm; color: #1c1c1c; }
+  h1 { font-size: 1.5rem; border-bottom: 3px solid #7a1f1f; padding-bottom: .3rem; }
+  .meta { color: #666; font-size: .85rem; margin-bottom: 1.4rem; }
+  article { margin-bottom: 1.3rem; page-break-inside: avoid; border-left: 4px solid #ccc; padding-left: .8rem; }
+  article.alert { border-left-color: #b03a2e; }
+  .badges span { font-size: .7rem; text-transform: uppercase; letter-spacing: .04em;
+    border: 1px solid #999; padding: 1px 6px; margin-right: 5px; border-radius: 3px; }
+  .badges .type-ALERTA { background: #b03a2e; color: #fff; border-color: #b03a2e; }
+  .badges .type-NOTA { background: #1f618d; color: #fff; border-color: #1f618d; }
+  h3 { margin: .35rem 0 .25rem; font-size: 1.05rem; }
+  .place { font-weight: bold; font-size: .85rem; }
+  .summary { margin: .3rem 0; }
+  .recs { font-size: .9rem; background: #f6f3ea; padding: .5rem .8rem; border-radius: 4px; }
+  .srcs { font-size: .78rem; color: #555; word-break: break-all; }
+  .state { color: #8a6d00; }
+  @media print { a { color: inherit; text-decoration: none; } }
+</style>
+</head>
+<body>
+<h1>🗼 Atalaya — {{ t('briefing_title') }}</h1>
+<p class="meta">{{ t('generated_at') }} {{ generated }} · {{ user.email }}</p>
+{% if not events %}<p>{{ t('no_incidents') }}</p>{% endif %}
+{% for e in events %}
+<article class="{{ 'alert' if e.event_type == 'ALERTA' }}">
+  <div class="badges">
+    <span class="type-{{ e.event_type }}">{{ t('event_type_' + e.event_type) }}</span>
+    {% if e.category %}<span>{{ t('cat_' + e.category) }}</span>{% endif %}
+    {% if e.level %}<span>{{ t('level_' + e.level) }}</span>{% endif %}
+  </div>
+  <p class="place">{{ e.country_name }}{% if e.zone_name %} · {{ e.zone_name }}{% endif %}
+     {% if e.occurred_at %} — {{ e.occurred_at }}{% endif %}</p>
+  <h3>{{ e.title }}</h3>
+  {% if e.summary %}<p class="summary">{{ e.summary }}</p>{% endif %}
+  {% if e.recommendations %}
+  <div class="recs"><strong>{{ t('recommendations') }}:</strong>
+    <ul>{% for r in e.recommendations %}<li>{{ r }}</li>{% endfor %}</ul>
+  </div>
+  {% endif %}
+  <p class="srcs">{{ e.n_sources }} {{ t('sources') }}:
+    {% for s in e.sources %}{{ s.name }}{% if s.state %} [{{ t('state_media_tag') }}]{% endif %} — {{ s.url }}{{ "; " if not loop.last }}{% endfor %}
+  </p>
+</article>
+{% endfor %}
+</body>
+</html>

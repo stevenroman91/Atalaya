@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}{{ t('app_name') }}{% endblock %}</title>
+<link rel="stylesheet" href="/static/style.css">
+{% block head %}{% endblock %}
+</head>
+<body>
+{% if user %}
+<nav class="topnav">
+  <span class="brand">🗼 {{ t('app_name') }}</span>
+  <a href="/dashboard" class="{{ 'active' if request.url.path.startswith('/dashboard') }}">{{ t('dashboard') }}</a>
+  <a href="/weekly" class="{{ 'active' if request.url.path.startswith('/weekly') }}">{{ t('weekly') }}</a>
+  <a href="/monthly" class="{{ 'active' if request.url.path.startswith('/monthly') }}">{{ t('monthly') }}</a>
+  {% if user.role == 'admin' %}<a href="/admin" class="{{ 'active' if request.url.path.startswith('/admin') }}">{{ t('admin') }}</a>{% endif %}
+  <span class="spacer"></span>
+  <a href="/account">{{ t('my_account') }}</a>
+  <form method="post" action="/auth/logout" class="inline">
+    <button type="submit" class="linklike">{{ t('logout') }}</button>
+  </form>
+</nav>
+{% endif %}
+<main class="container">
+{% block content %}{% endblock %}
+</main>
+</body>
+</html>

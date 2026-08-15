@@ -1,0 +1,16 @@
+# Configuración de autenticación y cuentas.
+invitations:
+  ttl_hours: 72                # validez del enlace de invitación (uso único)
+  allowed_email_domains: []    # vacío = cualquier dominio; ej. ["eeas.europa.eu"]
+password_reset:
+  ttl_hours: 2
+passwords:
+  min_length: 10
+sessions:
+  idle_timeout_minutes: 480    # desconexión tras inactividad
+  absolute_lifetime_hours: 72
+rate_limit:
+  login_max_attempts: 5        # por cuenta y por IP, en ventana
+  login_window_minutes: 15
+  lockout_base_minutes: 5      # bloqueo progresivo: 5, 10, 20, 40… min
+  lockout_max_minutes: 240

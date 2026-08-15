@@ -1,0 +1,125 @@
+# Lista blanca de fuentes de Atalaya.
+#
+# Campos por fuente:
+#   name            Nombre del medio
+#   domain          Dominio canónico (sin www)
+#   origin          País de origen (ISO-2) — puede diferir de los países cubiertos
+#   covers          Lista de países (ISO-2) para los que esta fuente es válida.
+#                   "*" = todos los países del perímetro.
+#   lang            Idioma principal (es/pt/en)
+#   type            independiente | estatal | internacional
+#   rss             URL de flujo RSS *verificada*. null = desconocida: el colector
+#                   intenta autodescubrirla (<link rel="alternate">) en runtime y
+#                   la persiste en la base; NUNCA se inventa una URL a mano.
+#   section_url     Para medios "fuera de país": sección regional a privilegiar.
+#                   El colector además filtra por entidades geográficas del texto.
+#
+# Regla §4: un medio "estatal" lleva el tag «medio estatal — contrastar» y nunca
+# sustenta una alerta por sí solo. Dos fuentes estatales no cuentan como
+# independientes entre sí para la recurrencia.
+
+sources:
+  # ── Internacionales / regionales ──────────────────────────────────────────
+  - { name: "Infobae",            domain: "infobae.com",         origin: AR, covers: ["*"], lang: es, type: internacional, rss: null }
+  - { name: "BBC Mundo",          domain: "bbc.com",             origin: GB, covers: ["*"], lang: es, type: internacional, rss: null,
+      section_url: "https://www.bbc.com/mundo" }
+  - { name: "El País América",    domain: "elpais.com",          origin: ES, covers: ["*"], lang: es, type: internacional, rss: null,
+      section_url: "https://elpais.com/america/" }
+  - { name: "Bloomberg Línea",    domain: "bloomberglinea.com",  origin: US, covers: ["*"], lang: es, type: internacional, rss: null }
+  - { name: "Forbes (ediciones locales)", domain: "forbes.com.mx", origin: MX, covers: ["*"], lang: es, type: internacional, rss: null }
+  - { name: "El Economista",      domain: "eleconomista.com.mx", origin: MX, covers: ["*"], lang: es, type: internacional, rss: null }
+  - { name: "LatinUS",            domain: "latinus.us",          origin: US, covers: ["*"], lang: es, type: internacional, rss: null }
+  - { name: "Prensa Latina",      domain: "prensa-latina.cu",    origin: CU, covers: ["*"], lang: es, type: estatal, rss: null }
+  - { name: "teleSUR",            domain: "telesurtv.net",       origin: VE, covers: ["*"], lang: es, type: estatal, rss: null }
+
+  # ── México ────────────────────────────────────────────────────────────────
+  - { name: "El Universal",       domain: "eluniversal.com.mx",  origin: MX, covers: [MX], lang: es, type: independiente, rss: null }
+  - { name: "Milenio",            domain: "milenio.com",         origin: MX, covers: [MX], lang: es, type: independiente, rss: null }
+  - { name: "La Jornada",         domain: "jornada.com.mx",      origin: MX, covers: [MX, PY], lang: es, type: independiente, rss: null,
+      section_url: "https://www.jornada.com.mx/category/mundo" }
+  - { name: "La Silla Rota",      domain: "lasillarota.com",     origin: MX, covers: [MX, SV], lang: es, type: independiente, rss: null }
+  - { name: "Reforma",            domain: "reforma.com",         origin: MX, covers: [MX], lang: es, type: independiente, rss: null }
+  - { name: "Animal Político",    domain: "animalpolitico.com",  origin: MX, covers: [MX], lang: es, type: independiente, rss: null }
+  - { name: "Proceso",            domain: "proceso.com.mx",      origin: MX, covers: [MX], lang: es, type: independiente, rss: null }
+  - { name: "NTR Zacatecas",      domain: "ntrzacatecas.com",    origin: MX, covers: [MX], lang: es, type: independiente, rss: null }
+  - { name: "El Imparcial (Sonora)", domain: "elimparcial.com",  origin: MX, covers: [MX], lang: es, type: independiente, rss: null }
+  - { name: "El Universal Oaxaca", domain: "oaxaca.eluniversal.com.mx", origin: MX, covers: [MX], lang: es, type: independiente, rss: null }
+
+  # ── Guatemala ─────────────────────────────────────────────────────────────
+  - { name: "Soy502",             domain: "soy502.com",          origin: GT, covers: [GT], lang: es, type: independiente, rss: null }
+  - { name: "Prensa Libre",       domain: "prensalibre.com",     origin: GT, covers: [GT], lang: es, type: independiente, rss: null }
+  - { name: "La Hora",            domain: "lahora.gt",           origin: GT, covers: [GT], lang: es, type: independiente, rss: null }
+  - { name: "Emisoras Unidas",    domain: "emisorasunidas.com",  origin: GT, covers: [GT], lang: es, type: independiente, rss: null }
+  - { name: "Agencia Guatemalteca de Noticias", domain: "agn.gt", origin: GT, covers: [GT], lang: es, type: estatal, rss: null }
+
+  # ── Honduras ──────────────────────────────────────────────────────────────
+  - { name: "Proceso Digital",    domain: "proceso.hn",          origin: HN, covers: [HN], lang: es, type: independiente, rss: null }
+  - { name: "Diario La Tribuna",  domain: "latribuna.hn",        origin: HN, covers: [HN], lang: es, type: independiente, rss: null }
+  - { name: "Contracorriente",    domain: "contracorriente.red", origin: HN, covers: [HN], lang: es, type: independiente, rss: null }
+  - { name: "Criterio.hn",        domain: "criterio.hn",         origin: HN, covers: [HN], lang: es, type: independiente, rss: null }
+  - { name: "El Heraldo",         domain: "elheraldo.hn",        origin: HN, covers: [HN], lang: es, type: independiente, rss: null }
+
+  # ── Nicaragua ─────────────────────────────────────────────────────────────
+  - { name: "La Prensa Nicaragua", domain: "laprensani.com",     origin: NI, covers: [NI], lang: es, type: independiente, rss: null }
+  - { name: "Confidencial",       domain: "confidencial.digital", origin: NI, covers: [NI], lang: es, type: independiente, rss: null }
+  - { name: "Artículo 66",        domain: "articulo66.com",      origin: NI, covers: [NI], lang: es, type: independiente, rss: null }
+  - { name: "100% Noticias",      domain: "100noticias.com.ni",  origin: NI, covers: [NI], lang: es, type: independiente, rss: null }
+
+  # ── El Salvador ───────────────────────────────────────────────────────────
+  - { name: "El Diario de Hoy",   domain: "elsalvador.com",      origin: SV, covers: [SV], lang: es, type: independiente, rss: null }
+  - { name: "La Prensa Gráfica",  domain: "laprensagrafica.com", origin: SV, covers: ["*"], lang: es, type: independiente, rss: null }
+  - { name: "Diario El Mundo",    domain: "diarioelmundo.com",   origin: SV, covers: [SV], lang: es, type: independiente, rss: null }
+  - { name: "El Faro",            domain: "elfaro.net",          origin: SV, covers: [SV], lang: es, type: independiente, rss: null }
+
+  # ── Panamá ────────────────────────────────────────────────────────────────
+  - { name: "TVN Panamá",         domain: "tvn-2.com",           origin: PA, covers: [PA], lang: es, type: independiente, rss: null }
+  - { name: "La Prensa Panamá",   domain: "prensa.com",          origin: PA, covers: [PA], lang: es, type: independiente, rss: null }
+  - { name: "Telemetro",          domain: "telemetro.com",       origin: PA, covers: [PA], lang: es, type: independiente, rss: null }
+  - { name: "El Siglo",           domain: "elsiglo.com.pa",      origin: PA, covers: [PA], lang: es, type: independiente, rss: null }
+  - { name: "La Estrella de Panamá", domain: "laestrella.com.pa", origin: PA, covers: [PA], lang: es, type: independiente, rss: null }
+  - { name: "Panamá América",     domain: "panamaamerica.com.pa", origin: PA, covers: [PA], lang: es, type: independiente, rss: null }
+  - { name: "Crítica",            domain: "critica.com.pa",      origin: PA, covers: [PA], lang: es, type: independiente, rss: null }
+
+  # ── Argentina ─────────────────────────────────────────────────────────────
+  - { name: "Clarín",             domain: "clarin.com",          origin: AR, covers: [AR], lang: es, type: independiente, rss: null }
+  - { name: "La Nación (AR)",     domain: "lanacion.com.ar",     origin: AR, covers: [AR], lang: es, type: independiente, rss: null }
+  - { name: "Página/12",          domain: "pagina12.com.ar",     origin: AR, covers: [AR], lang: es, type: independiente, rss: null }
+  - { name: "Perfil",             domain: "perfil.com",          origin: AR, covers: [AR], lang: es, type: independiente, rss: null }
+  - { name: "TN (Todo Noticias)", domain: "tn.com.ar",           origin: AR, covers: [AR], lang: es, type: independiente, rss: null }
+
+  # ── Brasil ────────────────────────────────────────────────────────────────
+  - { name: "CNN Brasil",         domain: "cnnbrasil.com.br",    origin: BR, covers: [BR], lang: pt, type: independiente, rss: null }
+  - { name: "G1",                 domain: "g1.globo.com",        origin: BR, covers: [BR], lang: pt, type: independiente, rss: null }
+  - { name: "Folha de S.Paulo",   domain: "folha.uol.com.br",    origin: BR, covers: [BR], lang: pt, type: independiente, rss: null }
+  - { name: "O Globo",            domain: "oglobo.globo.com",    origin: BR, covers: [BR], lang: pt, type: independiente, rss: null }
+  - { name: "Correio Braziliense", domain: "correiobraziliense.com.br", origin: BR, covers: [BR], lang: pt, type: independiente, rss: null }
+
+  # ── Venezuela ─────────────────────────────────────────────────────────────
+  # Nota: los sitios independientes están bloqueados dentro del país pero son
+  # accesibles desde el exterior (donde corre Atalaya).
+  - { name: "El Nacional",        domain: "elnacional.com",      origin: VE, covers: [VE, PY], lang: es, type: independiente, rss: null,
+      section_url: "https://www.elnacional.com/mundo/" }
+  - { name: "El Pitazo",          domain: "elpitazo.net",        origin: VE, covers: [VE], lang: es, type: independiente, rss: null }
+  - { name: "Efecto Cocuyo",      domain: "efectococuyo.com",    origin: VE, covers: [VE], lang: es, type: independiente, rss: null }
+  - { name: "Runrunes",           domain: "runrun.es",           origin: VE, covers: [VE], lang: es, type: independiente, rss: null }
+  - { name: "Tal Cual",           domain: "talcualdigital.com",  origin: VE, covers: [VE], lang: es, type: independiente, rss: null }
+  - { name: "Venevisión",         domain: "venevision.com",      origin: VE, covers: [VE], lang: es, type: independiente, rss: null }
+
+  # ── Paraguay ──────────────────────────────────────────────────────────────
+  # La Nación (PY) pertenece al grupo Cartes — posible sesgo pro-gubernamental.
+  - { name: "ABC Color",          domain: "abc.com.py",          origin: PY, covers: [PY], lang: es, type: independiente, rss: null }
+  - { name: "Última Hora",        domain: "ultimahora.com",      origin: PY, covers: [PY], lang: es, type: independiente, rss: null }
+  - { name: "La Nación (PY)",     domain: "lanacion.com.py",     origin: PY, covers: [PY], lang: es, type: independiente, rss: null,
+      notes: "Grupo Cartes — posible sesgo pro-gubernamental" }
+  - { name: "Diario HOY",         domain: "hoy.com.py",          origin: PY, covers: [PY], lang: es, type: independiente, rss: null }
+
+# Reglas de aceptación fuera de lista blanca (§4): un dominio externo solo se
+# acepta si parece un medio de prensa identificable Y el evento ya está
+# corroborado por al menos una fuente de la lista blanca. Estos umbrales los
+# usa el detector de granjas de contenido.
+off_whitelist:
+  allow_corroborated: true
+  reject_signals:
+    max_domain_age_days_suspicious: 180   # dominios recientes que imitan medios
+    require_known_tld: true
+  blocked_domains: []                     # lista negra manual, editable desde admin

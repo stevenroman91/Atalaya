@@ -1,0 +1,22 @@
+# Horarios de los jobs (interpretados en la zona horaria indicada).
+# En Railway estos valores se reflejan en el cronSchedule de cada servicio
+# (ver README §Despliegue) — Railway usa UTC, la conversión está documentada.
+daily:
+  cron: "0 6 * * *"            # 06:00 America/Mexico_City
+  timezone: "America/Mexico_City"
+  window_hours: 24
+  overlap_hours: 2             # ventana deslizante 24h + 2h de solape
+weekly:
+  cron: "0 7 * * 5"            # viernes 07:00
+  timezone: "America/Mexico_City"
+  window_days: 7
+  overlap_hours: 6
+monthly:
+  cron: "0 7 1 * *"            # día 1 a las 07:00
+  timezone: "America/Mexico_City"
+collector:
+  request_delay_seconds: 1.5   # cortesía entre peticiones al mismo host
+  timeout_seconds: 20
+  user_agent: "AtalayaBot/1.0 (+vigilancia de seguridad; contacto: admin)"
+  max_articles_per_feed: 50
+  source_failure_alert_days: 3 # fuente inalcanzable N días seguidos → visible en admin

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ t('monthly') }}</h2>
+<form method="get" action="/monthly" class="selectors">
+  <select name="country" onchange="this.form.submit()">
+    {% for code, c in weekly_countries.items() %}
+    <option value="{{ code }}" {{ 'selected' if code == sel_country }}>{{ c.name }}</option>
+    {% endfor %}
+  </select>
+  <select name="month" onchange="this.form.submit()">
+    {% for m in months %}<option value="{{ m }}" {{ 'selected' if m == sel_month }}>{{ m }}</option>{% endfor %}
+  </select>
+  {% if synthesis %}
+  <a class="button" href="/monthly/export.docx?country={{ sel_country }}&month={{ sel_month }}">DOCX</a>
+  {% endif %}
+</form>
+
+{% if not synthesis %}
+  <p class="empty">{{ t('no_material') }}</p>
+{% else %}
+  <section class="panel">
+    <h3>{{ t('monthly_overview') }}</h3>
+    <p>{{ synthesis.overview_es }}</p>
+  </section>
+  {% for theme in themes %}
+    {% set sec = (synthesis.sections or {}).get(theme) %}
+    {% if sec %}
+    <section class="themeblock">
+      <h3>{{ t('theme_' + theme) }}</h3>
+      <p>{{ sec.sintesis }}</p>
+      {% for art in sec.articulos %}
+      <article class="mini-item">
+        <a href="{{ art.url }}" target="_blank" rel="noopener noreferrer"><strong>{{ art.titulo }}</strong></a>
+        <span class="muted">{{ art.fecha or '' }} · {{ art.fuente or '' }}</span>
+        {% if art.resumen %}<p>{{ art.resumen }}</p>{% endif %}
+      </article>
+      {% endfor %}
+    </section>
+    {% endif %}
+  {% endfor %}
+  <section class="themeblock">
+    <h3>{{ t('incident_table') }}</h3>
+    <div class="tablewrap">
+    <table>
+      <thead><tr>
+        <th>{{ t('col_fecha') }}</th><th>{{ t('col_localizacion') }}</th>
+        <th>{{ t('col_nivel') }}</th><th>{{ t('col_categoria') }}</th>
+        <th>{{ t('col_descripcion') }}</th><th>{{ t('col_fuentes') }}</th>
+      </tr></thead>
+      <tbody>
+      {% for inc in synthesis.incidents %}
+      <tr>
+        <td>{{ inc.fecha or '' }}</td>
+        <td>{{ inc.localizacion }}</td>
+        <td>{{ inc.nivel }}</td>
+        <td>{{ inc.categoria }}</td>
+        <td>{{ inc.descripcion }}</td>
+        <td>{% for s in inc.fuentes %}<a href="{{ s.url }}" target="_blank" rel="noopener noreferrer">{{ s.name or 'fuente' }}</a>{{ ", " if not loop.last }}{% endfor %}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="authbox">
+  <h1>🗼 {{ t('app_name') }}</h1>
+  {% if invalid %}
+    <p class="error">{{ t('invitation_invalid') }}</p>
+  {% else %}
+    <p class="muted">{{ email }}</p>
+    {% if error %}<p class="error">{{ error }}</p>{% endif %}
+    <form method="post" action="/auth/invite/{{ token }}">
+      <label>{{ t('password') }}<input type="password" name="password" required minlength="10"></label>
+      <label>{{ t('password_confirm') }}<input type="password" name="password2" required minlength="10"></label>
+      <button type="submit" class="primary">{{ t('accept_invitation') }}</button>
+    </form>
+  {% endif %}
+</div>
+{% endblock %}

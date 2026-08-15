@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="authbox wide">
+  <h2>{{ t('onboarding_title') if onboarding else t('my_account') }}</h2>
+  {% if onboarding %}<p class="muted">{{ t('onboarding_hint') }}</p>{% endif %}
+  {% if saved %}<p class="ok">{{ t('saved') }}</p>{% endif %}
+  <form method="post" action="/account">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {% if onboarding %}<input type="hidden" name="from_onboarding" value="1">{% endif %}
+    <fieldset>
+      <legend>{{ t('prefs_countries') }}</legend>
+      <div class="checkgrid">
+      {% for code, c in countries.items() %}
+        <label class="check"><input type="checkbox" name="countries" value="{{ code }}"
+          {{ 'checked' if code in (user.countries or []) }}> {{ c.name }}</label>
+      {% endfor %}
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>{{ t('prefs_mx_zones') }}</legend>
+      <div class="checkgrid">
+      {% for z in mx_zones %}
+        <label class="check"><input type="checkbox" name="mx_zones" value="{{ z.id }}"
+          {{ 'checked' if user.mx_zones and z.id in user.mx_zones }}> {{ z.name }}</label>
+      {% endfor %}
+      </div>
+    </fieldset>
+    <label>{{ t('prefs_lang') }}
+      <select name="lang">
+        {% for l in langs %}<option value="{{ l }}" {{ 'selected' if user.lang == l }}>{{ {'es':'Español','fr':'Français','en':'English','pt':'Português'}[l] }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>{{ t('prefs_tz') }}
+      <select name="timezone" id="tzselect">
+        {% for tz in tzs %}<option value="{{ tz }}" {{ 'selected' if user.timezone == tz }}>{{ tz }}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="check"><input type="checkbox" name="email_briefing" {{ 'checked' if user.email_briefing }}> {{ t('prefs_briefing') }}</label>
+    <button type="submit" class="primary">{{ t('save') }}</button>
+  </form>
+</div>
+<script>
+// Fuseau deducido del navegador si el usuario aún no ha elegido (onboarding)
+(function () {
+  {% if onboarding %}
+  try {
+    var tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    var sel = document.getElementById("tzselect");
+    for (var i = 0; i < sel.options.length; i++) {
+      if (sel.options[i].value === tz) { sel.selectedIndex = i; break; }
+    }
+  } catch (e) {}
+  {% endif %}
+})();
+</script>
+{% endblock %}

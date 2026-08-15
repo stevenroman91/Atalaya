@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="authbox">
+  <h1>{{ t('reset_password') }}</h1>
+  {% if sent %}<p class="ok">{{ t('reset_sent') }}</p>{% endif %}
+  <form method="post" action="/auth/reset">
+    <label>{{ t('email') }}<input type="email" name="email" required></label>
+    <button type="submit" class="primary">{{ t('send_reset_link') }}</button>
+  </form>
+</div>
+{% endblock %}

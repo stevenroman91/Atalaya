@@ -1,0 +1,116 @@
+# Palabras clave de Atalaya.
+# daily: se combinan con cada zona (zona × palabra) para la vigilancia diaria.
+#   Los términos genéricos (seguridad, incidente) se conservan a propósito
+#   para maximizar el recall — el filtrado aguas abajo elimina el ruido.
+# weekly: juegos de palabras por tema para la vigilancia semanal / síntesis mensual.
+
+daily:
+  es:
+    - homicidio
+    - balacera
+    - tiroteo
+    - asalto
+    - inseguridad
+    - seguridad
+    - incidente
+    - robo
+    - protestas
+    - violencia
+  pt:
+    - homicídio
+    - tiroteio
+    - assalto
+    - insegurança
+    - segurança
+    - incidente
+    - roubo
+    - protestos
+    - violência
+
+weekly:
+  politica:
+    es: [elecciones, congreso, reforma, oposición, censura, "estado de excepción",
+         gobernabilidad, polarización, "libertad de prensa", manifestación,
+         "relaciones exteriores", destitución, corrupción]
+    pt: [eleições, congresso, reforma, oposição, censura, "estado de exceção",
+         governabilidade, polarização, "liberdade de imprensa", manifestação,
+         "relações exteriores", corrupção]
+  economia:
+    es: [inflación, desempleo, "canasta básica", pobreza, desigualdad, recesión,
+         "tipo de cambio", paro, huelga, "reforma económica", exportaciones]
+    pt: [inflação, desemprego, "cesta básica", pobreza, desigualdade, recessão,
+         câmbio, greve, "reforma econômica", exportações]
+  sanitario:
+    es: [epidemia, brote, dengue, sarampión, cólera, "alerta sanitaria",
+         "emergencia sanitaria", vacunación]
+    pt: [epidemia, surto, dengue, sarampo, cólera, "alerta sanitário",
+         "emergência sanitária", vacinação]
+  natural:
+    es: [sismo, terremoto, temblor, incendio, inundación, huracán, "tormenta tropical",
+         deslizamiento, erupción, sequía]
+    pt: [terremoto, tremor, incêndio, inundação, furacão, "tempestade tropical",
+         deslizamento, seca]
+  seguridad:
+    es: [homicidio, "crimen organizado", narcotráfico, extorsión, secuestro,
+         "operativo de seguridad", pandillas, cartel, enfrentamiento, masacre]
+    pt: [homicídio, "crime organizado", narcotráfico, extorsão, sequestro,
+         "operação de segurança", facções, milícia, confronto, chacina]
+
+# Señales de gravedad usadas por el scoring (§5.4). Editable sin tocar código.
+severity:
+  # Atentado a la integridad física (o amenaza directa)
+  physical_harm:
+    es: [homicidio, asesinato, asesinado, muerto, muertos, fallecido, herido, heridos,
+         balacera, tiroteo, disparos, ataque, atentado, secuestro, secuestrado,
+         levantón, feminicidio, masacre, linchamiento, apuñalado, granada, explosión,
+         "cuerpo hallado", cadáver, ejecutado, agresión, violación]
+    pt: [homicídio, assassinato, assassinado, morto, mortos, ferido, feridos,
+         tiroteio, disparos, ataque, atentado, sequestro, sequestrado, chacina,
+         feminicídio, linchamento, esfaqueado, granada, explosão, corpo, executado]
+  # Modus operandi reproducible
+  modus_operandi:
+    es: ["modus operandi", "ola de robos", "serie de asaltos", "secuestro exprés",
+         extorsión, "cobro de piso", montachoques, "gota a gota", "mismo método",
+         "banda dedicada", "robo a casa habitación", "asaltos a transeúntes"]
+    pt: ["modus operandi", "onda de roubos", "série de assaltos", "sequestro relâmpago",
+         extorsão, "mesmo método", "quadrilha especializada", "arrastão"]
+  # Gravedad extrema — 1 sola fuente basta para entrar en la cola "a confirmar"
+  extreme:
+    es: [atentado, "golpe de estado", magnicidio, "estado de excepción" ,
+         "toque de queda", terremoto, tsunami, erupción, masacre, avionazo,
+         "accidente aéreo", "explosión masiva"]
+    pt: [atentado, "golpe de estado", magnicídio, "toque de recolher",
+         terremoto, tsunami, erupção, chacina, "acidente aéreo"]
+
+# Clasificación de categoría (§5.5) por señales léxicas. El primer grupo que
+# matchea gana; orden = prioridad.
+categories:
+  crimen_alto_impacto:
+    es: [homicidio, asesinato, balacera, tiroteo, feminicidio, masacre, ejecutado,
+         secuestro, atentado, "cuerpo hallado", cadáver, muertos, muerto]
+    pt: [homicídio, assassinato, tiroteio, chacina, feminicídio, sequestro,
+         atentado, corpo, mortos, morto]
+  desastre_natural:
+    es: [sismo, terremoto, temblor, inundación, huracán, incendio, deslizamiento,
+         erupción, tormenta]
+    pt: [terremoto, tremor, inundação, furacão, incêndio, deslizamento, erupção,
+         tempestade]
+  operacion_seguridad:
+    es: [operativo, detenido, detención, captura, capturado, decomiso, allanamiento,
+         "fuerzas armadas", despliegue, aseguramiento]
+    pt: [operação, detido, prisão, captura, capturado, apreensão, "forças armadas"]
+  manifestacion:
+    es: [protesta, protestas, manifestación, marcha, bloqueo, paro, huelga,
+         disturbios, enfrentamientos]
+    pt: [protesto, protestos, manifestação, marcha, bloqueio, greve, distúrbios]
+  crimen_bajo_impacto:
+    es: [robo, asalto, extorsión, hurto, cristalazo, carterista, "robo a mano armada"]
+    pt: [roubo, assalto, extorsão, furto, arrastão]
+
+# Nivel (§5.5): advertencia si hay señal de patrón/serie; si no, informativo.
+level_advertencia:
+  es: [ola, serie, "van al menos", "suman", racha, patrón, reiterado, "otra vez",
+       "de nuevo", temporada, alerta, "estado de excepción", "toque de queda",
+       recurrente, sistemático]
+  pt: [onda, série, "já somam", padrão, reiterado, "mais uma vez", temporada,
+       alerta, recorrente, sistemático]

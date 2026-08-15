@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ t('weekly') }}</h2>
+<form method="get" action="/weekly" class="selectors">
+  <select name="country" onchange="this.form.submit()">
+    {% for code, c in weekly_countries.items() %}
+    <option value="{{ code }}" {{ 'selected' if code == sel_country }}>{{ c.name }}</option>
+    {% endfor %}
+  </select>
+  <select name="week" onchange="this.form.submit()">
+    {% for w in weeks %}<option value="{{ w }}" {{ 'selected' if w == sel_week }}>{{ t('week') }} {{ w }}</option>{% endfor %}
+  </select>
+</form>
+{% for theme in themes %}
+<section class="themeblock">
+  <h3>{{ t('theme_' + theme) }}</h3>
+  {% set items = by_theme.get(theme, []) %}
+  {% if not items %}<p class="muted">—</p>{% endif %}
+  {% for it in items %}
+  <article class="mini-item">
+    <a href="{{ it.url }}" target="_blank" rel="noopener noreferrer"><strong>{{ it.title }}</strong></a>
+    <span class="muted">{{ it.date or '' }} · {{ it.source or '' }}</span>
+    {% if it.summary %}<p>{{ it.summary }}</p>{% endif %}
+  </article>
+  {% endfor %}
+</section>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,172 @@
+# Zonas monitoreadas por Atalaya.
+# daily: vigilancia diaria de alertas. weekly: vigilancia semanal / síntesis mensual.
+# gn: parámetros de Google News RSS (hl/gl/ceid) por país.
+# geo: [lat, lon] aproximado para el mapa (nivel ciudad; nunca se inventa una
+#      dirección exacta — el resumen cita el lugar según las fuentes).
+
+countries:
+  MX:
+    name: "México"
+    lang: es
+    gn: { hl: "es-419", gl: "MX", ceid: "MX:es-419" }
+    daily: true
+    weekly: false          # México tiene otro entregable, fuera de alcance
+    zones:
+      - id: mx-nacional
+        name: "México (nacional)"
+        query_terms: ["México"]
+        geo: [23.6345, -102.5528]
+      - id: mx-cdmx-roma-norte
+        name: "CDMX — Roma Norte"
+        parent: "Ciudad de México"
+        query_terms: ["Roma Norte CDMX", "colonia Roma Norte"]
+        geo: [19.4172, -99.1625]
+      - id: mx-cdmx-polanco
+        name: "CDMX — Polanco"
+        parent: "Ciudad de México"
+        query_terms: ["Polanco CDMX"]
+        geo: [19.4326, -99.1994]
+      - id: mx-cdmx-lomas
+        name: "CDMX — Lomas de Chapultepec"
+        parent: "Ciudad de México"
+        query_terms: ["Lomas de Chapultepec"]
+        geo: [19.4260, -99.2153]
+      - id: mx-cdmx-benito-juarez
+        name: "CDMX — Benito Juárez"
+        parent: "Ciudad de México"
+        query_terms: ["alcaldía Benito Juárez CDMX"]
+        geo: [19.3727, -99.1564]
+      - id: mx-cdmx-centro
+        name: "CDMX — Centro"
+        parent: "Ciudad de México"
+        query_terms: ["Centro Histórico CDMX"]
+        geo: [19.4326, -99.1332]
+      - id: mx-cdmx-santa-fe
+        name: "CDMX — Santa Fe"
+        parent: "Ciudad de México"
+        query_terms: ["Santa Fe CDMX"]
+        geo: [19.3598, -99.2674]
+      - id: mx-zacatecas
+        name: "Zacatecas (capital)"
+        query_terms: ["Zacatecas"]
+        geo: [22.7709, -102.5832]
+      - id: mx-juchitan
+        name: "Oaxaca — Juchitán"
+        query_terms: ["Juchitán Oaxaca", "Juchitán de Zaragoza"]
+        geo: [16.4340, -95.0198]
+      - id: mx-guaymas
+        name: "Sonora — Guaymas"
+        query_terms: ["Guaymas Sonora"]
+        geo: [27.9179, -110.8989]
+
+  GT:
+    name: "Guatemala"
+    lang: es
+    gn: { hl: "es-419", gl: "GT", ceid: "GT:es-419" }
+    daily: true
+    weekly: true
+    zones:
+      - id: gt-ciudad
+        name: "Ciudad de Guatemala"
+        query_terms: ["Ciudad de Guatemala"]
+        geo: [14.6349, -90.5069]
+      - id: gt-antigua
+        name: "Antigua Guatemala"
+        query_terms: ["Antigua Guatemala"]
+        geo: [14.5586, -90.7295]
+
+  HN:
+    name: "Honduras"
+    lang: es
+    gn: { hl: "es-419", gl: "HN", ceid: "HN:es-419" }
+    daily: true
+    weekly: true
+    zones:
+      - id: hn-tegucigalpa
+        name: "Tegucigalpa"
+        query_terms: ["Tegucigalpa"]
+        geo: [14.0723, -87.1921]
+
+  NI:
+    name: "Nicaragua"
+    lang: es
+    gn: { hl: "es-419", gl: "NI", ceid: "NI:es-419" }
+    daily: true
+    weekly: true
+    zones:
+      - id: ni-managua
+        name: "Managua"
+        query_terms: ["Managua"]
+        geo: [12.1150, -86.2362]
+
+  SV:
+    name: "El Salvador"
+    lang: es
+    gn: { hl: "es-419", gl: "SV", ceid: "SV:es-419" }
+    daily: true
+    weekly: true
+    zones:
+      - id: sv-san-salvador
+        name: "San Salvador"
+        query_terms: ["San Salvador"]
+        geo: [13.6929, -89.2182]
+
+  PA:
+    name: "Panamá"
+    lang: es
+    gn: { hl: "es-419", gl: "PA", ceid: "PA:es-419" }
+    daily: true
+    weekly: true
+    zones:
+      - id: pa-ciudad
+        name: "Ciudad de Panamá"
+        query_terms: ["Ciudad de Panamá"]
+        geo: [8.9824, -79.5199]
+
+  AR:
+    name: "Argentina"
+    lang: es
+    gn: { hl: "es-419", gl: "AR", ceid: "AR:es-419" }
+    daily: true
+    weekly: true
+    zones:
+      - id: ar-buenos-aires
+        name: "Buenos Aires"
+        query_terms: ["Buenos Aires"]
+        geo: [-34.6037, -58.3816]
+
+  BR:
+    name: "Brasil"
+    lang: pt
+    gn: { hl: "pt-BR", gl: "BR", ceid: "BR:pt-419" }
+    daily: true
+    weekly: true
+    zones:
+      - id: br-brasilia
+        name: "Brasília"
+        query_terms: ["Brasília"]
+        geo: [-15.7939, -47.8828]
+
+  VE:
+    name: "Venezuela"
+    lang: es
+    gn: { hl: "es-419", gl: "VE", ceid: "VE:es-419" }
+    daily: true
+    weekly: true
+    zones:
+      - id: ve-caracas
+        name: "Caracas"
+        query_terms: ["Caracas"]
+        geo: [10.4806, -66.9036]
+
+  PY:
+    name: "Paraguay"
+    lang: es
+    gn: { hl: "es-419", gl: "PY", ceid: "PY:es-419" }
+    daily: true
+    weekly: true
+    zones:
+      - id: py-asuncion
+        name: "Asunción"
+        query_terms: ["Asunción Paraguay"]
+        geo: [-25.2637, -57.5759]
