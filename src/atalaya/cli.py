@@ -18,11 +18,32 @@ import os
 import sys
 
 
+def _project_root():
+    """Directorio que contiene alembic.ini y migrations/.
+
+    Con el paquete instalado por pip, __file__ está en site-packages y no
+    sirve como referencia: se prueba ATALAYA_ROOT, luego el cwd (en Docker,
+    /app) y por último la raíz del repo (modo desarrollo).
+    """
+    from pathlib import Path
+    candidates = []
+    if os.environ.get("ATALAYA_ROOT"):
+        candidates.append(Path(os.environ["ATALAYA_ROOT"]))
+    candidates.append(Path.cwd())
+    candidates.append(Path(__file__).resolve().parents[2])
+    for root in candidates:
+        if (root / "alembic.ini").is_file() and (root / "migrations").is_dir():
+            return root
+    raise SystemExit(
+        "No se encuentra alembic.ini/migrations. Define ATALAYA_ROOT o ejecuta "
+        f"desde la raíz del proyecto (probado: {', '.join(str(c) for c in candidates)})."
+    )
+
+
 def _init_db() -> None:
     from alembic import command
     from alembic.config import Config
-    from pathlib import Path
-    root = Path(__file__).resolve().parents[2]
+    root = _project_root()
     cfg = Config(str(root / "alembic.ini"))
     cfg.set_main_option("script_location", str(root / "migrations"))
     command.upgrade(cfg, "head")
