@@ -125,12 +125,31 @@ class Collector:
             return url
         return None
 
+    @staticmethod
+    def _absolutize(domain: str, url: str | None) -> str | None:
+        """Normaliza una URL de feed a forma absoluta https://…
+
+        Cubre config, descubrimiento y valores heredados en base: una URL
+        relativa ('/rss/x.xml', 'rss/x.xml') o protocolo-relativa ('//…')
+        se ancla al dominio de la fuente.
+        """
+        if not url:
+            return None
+        if url.startswith(("http://", "https://")):
+            return url
+        if url.startswith("//"):
+            return f"https:{url}"
+        return f"https://{domain}/{url.lstrip('/')}"
+
     def discover_rss(self, source) -> str | None:
         if source.rss:
-            return source.rss
+            return self._absolutize(source.domain, source.rss)
         rec = self._source_record(source.domain, source.name)
         if rec.discovered_rss:
-            return rec.discovered_rss
+            fixed = self._absolutize(source.domain, rec.discovered_rss)
+            if fixed != rec.discovered_rss:  # repara valores heredados
+                rec.discovered_rss = fixed
+            return fixed
         base = source.section_url or f"https://{source.domain}/"
         resp = self.fetcher.get(base)
         if resp:
@@ -140,9 +159,7 @@ class Collector:
                 r'<link[^>]+href=["\']([^"\']+)["\'][^>]*type=["\']application/(?:rss|atom)\+xml["\']',
                 resp.text, re.I)
             if m:
-                href = m.group(1)
-                if href.startswith("/"):
-                    href = f"https://{source.domain}{href}"
+                href = self._absolutize(source.domain, m.group(1).strip())
                 rec.discovered_rss = href
                 log.info("RSS autodescubierto para %s: %s", source.domain, href)
                 return href

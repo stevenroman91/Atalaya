@@ -93,6 +93,9 @@ class PoliteFetcher:
 
     # ── API ──────────────────────────────────────────────────────────────
     def get(self, url: str, check_robots: bool = True) -> httpx.Response | None:
+        if not url.startswith(("http://", "https://")):
+            log.warning("URL no absoluta rechazada: %r", url)
+            return None
         if check_robots and not self.allowed(url):
             log.info("robots.txt prohíbe %s", url)
             return None
