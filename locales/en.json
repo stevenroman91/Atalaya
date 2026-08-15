@@ -44,5 +44,12 @@
   "invite_welcome": "You have been invited. Set your password to create your account.",
   "admin_invite_hint": "Enter the new user's email: a single-use link (valid for 72 h) will be generated for you to send them. They will use it to set their password and, on first login, their countries and language.",
   "copy": "Copy", "copied": "Copied ✓",
-  "alerts_label": "Alerts", "notes_label": "Notes"
+  "alerts_label": "Alerts", "notes_label": "Notes",
+  "select_all": "Select all", "select_none": "None",
+  "prefs_theme": "Theme", "theme_system": "Match system", "theme_light": "Light", "theme_dark": "Dark",
+  "admin_run_collect": "Run collection now",
+  "admin_collect_in_progress": "Collection in progress…",
+  "admin_collect_started": "Daily collection started in the background. It may take 30–60 min; reload this page to follow progress under \"Runs\".",
+  "admin_collect_running": "A collection is already running — wait for it to finish.",
+  "admin_collect_hint": "The daily collection runs automatically via cron. This button triggers it manually (initial fill or testing)."
 }

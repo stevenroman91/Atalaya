@@ -44,5 +44,12 @@
   "invite_welcome": "Has sido invitado/a. Define tu contraseña para crear tu cuenta.",
   "admin_invite_hint": "Introduce el correo del nuevo usuario: se generará un enlace de un solo uso (válido 72 h) que deberás hacerle llegar. Con él definirá su contraseña y, en su primera conexión, sus países y su idioma.",
   "copy": "Copiar", "copied": "Copiado ✓",
-  "alerts_label": "Alertas", "notes_label": "Notas"
+  "alerts_label": "Alertas", "notes_label": "Notas",
+  "select_all": "Seleccionar todo", "select_none": "Ninguno",
+  "prefs_theme": "Tema", "theme_system": "Como el sistema", "theme_light": "Claro", "theme_dark": "Oscuro",
+  "admin_run_collect": "Ejecutar colecta ahora",
+  "admin_collect_in_progress": "Colecta en curso…",
+  "admin_collect_started": "Colecta diaria lanzada en segundo plano. Puede tardar 30–60 min; recarga esta página para seguir el progreso en «Runs».",
+  "admin_collect_running": "Ya hay una colecta en curso — espera a que termine.",
+  "admin_collect_hint": "La colecta diaria se ejecuta automáticamente por cron. Este botón la lanza manualmente (primer llenado o pruebas)."
 }

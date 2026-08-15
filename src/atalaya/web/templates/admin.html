@@ -2,22 +2,14 @@
 {% block content %}
 <h2>{{ t('admin') }}</h2>
 {% if error %}<p class="error">{{ error }}</p>{% endif %}
+{% if notice == 'started' %}<p class="ok">{{ t('admin_collect_started') }}</p>
+{% elif notice == 'running' %}<p class="error">{{ t('admin_collect_running') }}</p>{% endif %}
 {% if invite_link %}
 <div class="invitelink">
   <strong>{{ t('admin_link') }}:</strong> <code id="invite-url">{{ invite_link }}</code>
   <button type="button" class="button secondary" id="copy-invite"
           data-copied="{{ t('copied') }}">{{ t('copy') }}</button>
 </div>
-<script>
-document.getElementById("copy-invite").addEventListener("click", function () {
-  var btn = this;
-  navigator.clipboard.writeText(document.getElementById("invite-url").textContent).then(function () {
-    var orig = btn.textContent;
-    btn.textContent = btn.dataset.copied;
-    setTimeout(function () { btn.textContent = orig; }, 1600);
-  });
-});
-</script>
 {% endif %}
 
 <section class="panel">
@@ -73,6 +65,13 @@ document.getElementById("copy-invite").addEventListener("click", function () {
 
 <section class="panel">
   <h3>{{ t('admin_health') }}</h3>
+  <p class="section-hint">{{ t('admin_collect_hint') }}</p>
+  <form method="post" action="/admin/collect-now" style="margin-bottom:1rem">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="submit" class="primary" {{ 'disabled' if collect_running }}>
+      {{ t('admin_collect_in_progress') if collect_running else t('admin_run_collect') }}
+    </button>
+  </form>
   <div class="tablewrap"><table>
     <thead><tr><th>{{ t('admin_source') }}</th><th>{{ t('admin_last_ok') }}</th><th>{{ t('admin_failures') }}</th><th>RSS</th></tr></thead>
     <tbody>

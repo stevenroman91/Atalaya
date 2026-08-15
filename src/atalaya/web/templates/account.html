@@ -9,7 +9,11 @@
     {% if onboarding %}<input type="hidden" name="from_onboarding" value="1">{% endif %}
     <fieldset>
       <legend>{{ t('prefs_countries') }}</legend>
-      <div class="checkgrid">
+      <div class="bulkrow">
+        <button type="button" class="bulklink" data-bulk="on" data-target="grid-countries">{{ t('select_all') }}</button>
+        <button type="button" class="bulklink" data-bulk="off" data-target="grid-countries">{{ t('select_none') }}</button>
+      </div>
+      <div class="checkgrid" id="grid-countries">
       {% for code, c in countries.items() %}
         <label class="check"><input type="checkbox" name="countries" value="{{ code }}"
           {{ 'checked' if code in (user.countries or []) }}> {{ c.name }}</label>
@@ -18,7 +22,11 @@
     </fieldset>
     <fieldset>
       <legend>{{ t('prefs_mx_zones') }}</legend>
-      <div class="checkgrid">
+      <div class="bulkrow">
+        <button type="button" class="bulklink" data-bulk="on" data-target="grid-mx">{{ t('select_all') }}</button>
+        <button type="button" class="bulklink" data-bulk="off" data-target="grid-mx">{{ t('select_none') }}</button>
+      </div>
+      <div class="checkgrid" id="grid-mx">
       {% for z in mx_zones %}
         <label class="check"><input type="checkbox" name="mx_zones" value="{{ z.id }}"
           {{ 'checked' if user.mx_zones and z.id in user.mx_zones }}> {{ z.name }}</label>
@@ -31,26 +39,19 @@
       </select>
     </label>
     <label>{{ t('prefs_tz') }}
-      <select name="timezone" id="tzselect">
+      <select name="timezone" id="tzselect"{% if onboarding %} data-autodetect="1"{% endif %}>
         {% for tz in tzs %}<option value="{{ tz }}" {{ 'selected' if user.timezone == tz }}>{{ tz }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>{{ t('prefs_theme') }}
+      <select name="theme">
+        <option value="system" {{ 'selected' if user.theme == 'system' or not user.theme }}>{{ t('theme_system') }}</option>
+        <option value="light" {{ 'selected' if user.theme == 'light' }}>{{ t('theme_light') }}</option>
+        <option value="dark" {{ 'selected' if user.theme == 'dark' }}>{{ t('theme_dark') }}</option>
       </select>
     </label>
     <label class="check"><input type="checkbox" name="email_briefing" {{ 'checked' if user.email_briefing }}> {{ t('prefs_briefing') }}</label>
     <button type="submit" class="primary">{{ t('save') }}</button>
   </form>
 </div>
-<script>
-// Fuseau deducido del navegador si el usuario aún no ha elegido (onboarding)
-(function () {
-  {% if onboarding %}
-  try {
-    var tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    var sel = document.getElementById("tzselect");
-    for (var i = 0; i < sel.options.length; i++) {
-      if (sel.options[i].value === tz) { sel.selectedIndex = i; break; }
-    }
-  } catch (e) {}
-  {% endif %}
-})();
-</script>
 {% endblock %}

@@ -27,8 +27,9 @@
   --shadow-lg: 0 4px 16px rgba(20, 18, 12, .07);
   --radius: 10px;
 }
+/* Modo oscuro: preferencia del sistema (salvo elección explícita «claro»)… */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     color-scheme: dark;
     --bg: #1f1e1b;
     --panel: #262624;
@@ -52,6 +53,31 @@
     --shadow: 0 1px 2px rgba(0, 0, 0, .25);
     --shadow-lg: 0 4px 16px rgba(0, 0, 0, .3);
   }
+}
+/* …o elección explícita «oscuro» en Mi cuenta (data-theme en <html>). */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #1f1e1b;
+  --panel: #262624;
+  --panel-2: #2d2c29;
+  --text: #f0efeb;
+  --text-2: #c3c2b7;
+  --muted: #8f8d85;
+  --border: #3a3935;
+  --border-strong: #4a4943;
+  --accent: #d97757;
+  --accent-hover: #e08a6e;
+  --accent-ink: #ffffff;
+  --alert: #e66767;
+  --alert-text: #ef8f8f;
+  --note: #3987e5;
+  --note-text: #74aeef;
+  --warn: #fab219;
+  --warn-text: #f4c554;
+  --new: #9085e9;
+  --ok-text: #4ec04e;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .25);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, .3);
 }
 
 * { box-sizing: border-box; }
@@ -145,6 +171,7 @@ button.primary, .button {
   transition: background .12s;
 }
 button.primary:hover, .button:hover { background: var(--accent-hover); text-decoration: none; }
+button.primary:disabled { opacity: .55; cursor: not-allowed; }
 .button.secondary {
   background: var(--panel); color: var(--text);
   border: 1px solid var(--border-strong);
@@ -179,6 +206,12 @@ button.primary:hover, .button:hover { background: var(--accent-hover); text-deco
 }
 .authbox label.check input, .checkgrid input { width: auto; margin-top: 0; }
 .checkgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: .35rem; }
+.bulkrow { display: flex; gap: 1rem; margin: .1rem 0 .55rem; }
+.bulklink {
+  background: none; border: none; cursor: pointer; padding: 0;
+  font: inherit; font-size: .8rem; color: var(--accent);
+}
+.bulklink:hover { text-decoration: underline; }
 fieldset {
   border: 1px solid var(--border); border-radius: 10px;
   margin: 1rem 0; padding: .8rem 1rem;

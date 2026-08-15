@@ -54,6 +54,8 @@ async def save(request: Request, user_sess=Depends(current_user),
     user.mx_zones = mx_zones or None       # None/[] = todas las zonas MX (§6.0)
     user.lang = lang if lang in SUPPORTED_LANGS else "es"
     user.timezone = form.get("timezone", user.timezone)
+    theme = form.get("theme", "system")
+    user.theme = theme if theme in ("system", "light", "dark") else "system"
     user.email_briefing = form.get("email_briefing") == "on"
     user.onboarded = True
     db.commit()

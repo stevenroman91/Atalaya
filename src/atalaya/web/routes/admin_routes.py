@@ -1,7 +1,9 @@
 """Espace admin (§6.1): invitations, comptes, santé de la collecte."""
 from __future__ import annotations
 
+import logging
 import os
+import threading
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import RedirectResponse
@@ -16,8 +18,12 @@ from atalaya.web.deps import check_csrf, get_db, render, require_admin
 router = APIRouter(prefix="/admin")
 
 
+log = logging.getLogger(__name__)
+
+
 @router.get("")
 def admin_home(request: Request, invite_link: str | None = None, error: str | None = None,
+               notice: str | None = None,
                user_sess=Depends(require_admin), db: Session = Depends(get_db)):
     user, sess = user_sess
     invitations = list(db.scalars(select(Invitation).order_by(desc(Invitation.created_at)).limit(50)))
@@ -26,10 +32,39 @@ def admin_home(request: Request, invite_link: str | None = None, error: str | No
     sources = list(db.scalars(select(SourceRecord).order_by(
         desc(SourceRecord.consecutive_failures), SourceRecord.domain)))
     runs = list(db.scalars(select(CollectRun).order_by(desc(CollectRun.started_at)).limit(20)))
+    collect_running = db.scalar(
+        select(CollectRun).where(CollectRun.finished_at.is_(None))
+        .order_by(desc(CollectRun.started_at))) is not None
     return render(request, "admin.html", user=user, csrf=sess.csrf_token,
                   invitations=invitations, users=users, sources=sources,
-                  runs=runs, invite_link=invite_link, error=error,
-                  failing_threshold=alert_days)
+                  runs=runs, invite_link=invite_link, error=error, notice=notice,
+                  collect_running=collect_running, failing_threshold=alert_days)
+
+
+def _collect_in_background(kind: str) -> None:
+    """Ejecuta un job de colecta en un hilo con su propia sesión DB."""
+    from atalaya.db import SessionLocal
+    from atalaya.jobs.runner import run_daily, run_weekly
+
+    def worker():
+        try:
+            with SessionLocal() as job_db:
+                (run_daily if kind == "daily" else run_weekly)(job_db)
+        except Exception:
+            log.exception("colecta %s lanzada desde admin falló", kind)
+
+    threading.Thread(target=worker, daemon=True, name=f"collect-{kind}").start()
+
+
+@router.post("/collect-now")
+async def collect_now(request: Request, user_sess=Depends(require_admin),
+                      db: Session = Depends(get_db)):
+    await check_csrf(request, user_sess)
+    in_progress = db.scalar(select(CollectRun).where(CollectRun.finished_at.is_(None)))
+    if in_progress is not None:
+        return RedirectResponse("/admin?notice=running", status_code=303)
+    _collect_in_background("daily")
+    return RedirectResponse("/admin?notice=started", status_code=303)
 
 
 @router.post("/invite")

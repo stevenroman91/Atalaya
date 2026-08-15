@@ -44,5 +44,12 @@
   "invite_welcome": "Você foi convidado(a). Defina sua senha para criar sua conta.",
   "admin_invite_hint": "Digite o e-mail do novo usuário: será gerado um link de uso único (válido por 72 h) que você deverá enviar a ele. Com o link, ele definirá sua senha e, no primeiro acesso, seus países e idioma.",
   "copy": "Copiar", "copied": "Copiado ✓",
-  "alerts_label": "Alertas", "notes_label": "Notas"
+  "alerts_label": "Alertas", "notes_label": "Notas",
+  "select_all": "Selecionar tudo", "select_none": "Nenhum",
+  "prefs_theme": "Tema", "theme_system": "Como o sistema", "theme_light": "Claro", "theme_dark": "Escuro",
+  "admin_run_collect": "Executar coleta agora",
+  "admin_collect_in_progress": "Coleta em andamento…",
+  "admin_collect_started": "Coleta diária iniciada em segundo plano. Pode levar 30–60 min; recarregue esta página para acompanhar o progresso em \"Runs\".",
+  "admin_collect_running": "Já há uma coleta em andamento — aguarde a conclusão.",
+  "admin_collect_hint": "A coleta diária é executada automaticamente via cron. Este botão a dispara manualmente (primeiro preenchimento ou testes)."
 }

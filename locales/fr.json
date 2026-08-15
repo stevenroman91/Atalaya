@@ -44,5 +44,12 @@
   "invite_welcome": "Vous avez été invité(e). Définissez votre mot de passe pour créer votre compte.",
   "admin_invite_hint": "Saisissez l'e-mail du nouvel utilisateur : un lien à usage unique (valable 72 h) sera généré, à lui transmettre. Il lui permettra de définir son mot de passe puis, à la première connexion, ses pays et sa langue.",
   "copy": "Copier", "copied": "Copié ✓",
-  "alerts_label": "Alertes", "notes_label": "Notes"
+  "alerts_label": "Alertes", "notes_label": "Notes",
+  "select_all": "Tout sélectionner", "select_none": "Aucun",
+  "prefs_theme": "Thème", "theme_system": "Comme le système", "theme_light": "Clair", "theme_dark": "Sombre",
+  "admin_run_collect": "Lancer la collecte maintenant",
+  "admin_collect_in_progress": "Collecte en cours…",
+  "admin_collect_started": "Collecte quotidienne lancée en arrière-plan. Cela peut prendre 30–60 min ; rechargez cette page pour suivre la progression dans « Runs ».",
+  "admin_collect_running": "Une collecte est déjà en cours — attendez qu'elle se termine.",
+  "admin_collect_hint": "La collecte quotidienne s'exécute automatiquement par cron. Ce bouton la lance manuellement (premier remplissage ou tests)."
 }

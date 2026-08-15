@@ -220,6 +220,7 @@ class User(Base):
     countries: Mapped[list] = mapped_column(JSON, default=list)      # países seguidos, [] = onboarding pendiente
     mx_zones: Mapped[list | None] = mapped_column(JSON)              # None/[] = todas las zonas MX
     email_briefing: Mapped[bool] = mapped_column(Boolean, default=False)
+    theme: Mapped[str] = mapped_column(String(8), default="system")  # system | light | dark
     onboarded: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # Marcador «nuevo» por cuenta
