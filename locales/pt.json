@@ -39,5 +39,10 @@
   "col_categoria": "Categoria", "col_descripcion": "Descrição", "col_fuentes": "Fonte(s)",
   "week": "Semana", "no_material": "Sem material este mês.",
   "briefing_title": "Briefing diário de segurança", "generated_at": "Gerado em",
-  "to_confirm_note": "Evento de fonte única e gravidade extrema — aguardando confirmação. Não difundir como alerta."
+  "to_confirm_note": "Evento de fonte única e gravidade extrema — aguardando confirmação. Não difundir como alerta.",
+  "login_invite_hint": "O acesso é por convite. Se ainda não tem conta, solicite um convite ao administrador da sua delegação.",
+  "invite_welcome": "Você foi convidado(a). Defina sua senha para criar sua conta.",
+  "admin_invite_hint": "Digite o e-mail do novo usuário: será gerado um link de uso único (válido por 72 h) que você deverá enviar a ele. Com o link, ele definirá sua senha e, no primeiro acesso, seus países e idioma.",
+  "copy": "Copiar", "copied": "Copiado ✓",
+  "alerts_label": "Alertas", "notes_label": "Notas"
 }

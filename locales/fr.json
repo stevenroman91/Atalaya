@@ -39,5 +39,10 @@
   "col_categoria": "Catégorie", "col_descripcion": "Description", "col_fuentes": "Source(s)",
   "week": "Semaine", "no_material": "Pas de matériel ce mois-ci.",
   "briefing_title": "Briefing sécuritaire quotidien", "generated_at": "Généré le",
-  "to_confirm_note": "Événement à source unique et gravité extrême — en attente de recoupement. Ne pas diffuser comme alerte."
+  "to_confirm_note": "Événement à source unique et gravité extrême — en attente de recoupement. Ne pas diffuser comme alerte.",
+  "login_invite_hint": "L'accès se fait sur invitation. Si vous n'avez pas encore de compte, demandez une invitation à l'administrateur de votre délégation.",
+  "invite_welcome": "Vous avez été invité(e). Définissez votre mot de passe pour créer votre compte.",
+  "admin_invite_hint": "Saisissez l'e-mail du nouvel utilisateur : un lien à usage unique (valable 72 h) sera généré, à lui transmettre. Il lui permettra de définir son mot de passe puis, à la première connexion, ses pays et sa langue.",
+  "copy": "Copier", "copied": "Copié ✓",
+  "alerts_label": "Alertes", "notes_label": "Notes"
 }

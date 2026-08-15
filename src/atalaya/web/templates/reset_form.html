@@ -1,12 +1,15 @@
 {% extends "base.html" %}
 {% block content %}
+<div class="authwrap">
 <div class="authbox">
-  <h1>{{ t('reset_password') }}</h1>
+  <div class="brand"><span class="brandmark">A</span>{{ t('app_name') }}</div>
+  <p class="tagline">{{ t('reset_password') }}</p>
   {% if error %}<p class="error">{{ error }}</p>{% endif %}
   <form method="post" action="/auth/reset/{{ token }}">
     <label>{{ t('password') }}<input type="password" name="password" required minlength="10"></label>
     <label>{{ t('password_confirm') }}<input type="password" name="password2" required minlength="10"></label>
     <button type="submit" class="primary">{{ t('reset_password') }}</button>
   </form>
+</div>
 </div>
 {% endblock %}

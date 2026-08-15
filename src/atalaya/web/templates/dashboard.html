@@ -68,7 +68,7 @@
 <div class="dashgrid">
   <section class="cards">
     {% if not events %}
-      <p class="empty">{{ t('no_incidents') if not query else t('no_results') }}</p>
+      <p class="empty"><span class="glyph">☑</span>{{ t('no_incidents') if not query else t('no_results') }}</p>
     {% endif %}
     {% for e in events %}
     <article class="card {{ 'is-alert' if e.event_type == 'ALERTA' else 'is-note' }} {{ 'is-pending' if e.status == 'pending_confirm' }}">
@@ -104,20 +104,27 @@
     </div>
     <div class="panel">
       <h4>{{ t('timeline') }}</h4>
+      {% set ns = namespace(maxsum=1) %}
+      {% for day in timeline %}
+        {% if day.alerts + day.notes > ns.maxsum %}{% set ns.maxsum = day.alerts + day.notes %}{% endif %}
+      {% endfor %}
       <div class="timeline">
-        {% set maxv = timeline | map(attribute='alerts') | max %}
         {% for day in timeline %}
-        <div class="tday" title="{{ day.date }}: {{ day.alerts }} A / {{ day.notes }} N">
-          <div class="tbar alerts" style="height: {{ (day.alerts / (maxv if maxv else 1) * 60) | round(0) }}px"></div>
-          <div class="tbar notes" style="height: {{ (day.notes * 6) if day.notes < 10 else 60 }}px"></div>
+        <div class="tday" title="{{ day.date }} — {{ day.alerts }} {{ t('alerts_label') }} · {{ day.notes }} {{ t('notes_label') }}">
+          {% if day.alerts %}<div class="tbar alerts" style="height: {{ [(day.alerts / ns.maxsum * 64) | round(0) | int, 3] | max }}px"></div>{% endif %}
+          {% if day.notes %}<div class="tbar notes" style="height: {{ [(day.notes / ns.maxsum * 64) | round(0) | int, 3] | max }}px"></div>{% endif %}
           <span class="tlabel">{{ day.date[8:] }}</span>
         </div>
         {% endfor %}
       </div>
+      <div class="tlegend">
+        <span><span class="dot alerts"></span>{{ t('alerts_label') }}</span>
+        <span><span class="dot notes"></span>{{ t('notes_label') }}</span>
+      </div>
     </div>
-    <div class="panel">
+    <div class="panel exportrow">
       <a class="button" href="/dashboard/briefing?format=pdf">{{ t('export_pdf') }} (PDF)</a>
-      <a class="button" href="/dashboard/briefing" target="_blank">HTML</a>
+      <a class="button secondary" href="/dashboard/briefing" target="_blank">HTML</a>
     </div>
   </aside>
 </div>

@@ -1,11 +1,15 @@
 {% extends "base.html" %}
 {% block content %}
+<div class="authwrap">
 <div class="authbox">
-  <h1>{{ t('reset_password') }}</h1>
+  <div class="brand"><span class="brandmark">A</span>{{ t('app_name') }}</div>
+  <p class="tagline">{{ t('reset_password') }}</p>
   {% if sent %}<p class="ok">{{ t('reset_sent') }}</p>{% endif %}
   <form method="post" action="/auth/reset">
     <label>{{ t('email') }}<input type="email" name="email" required></label>
     <button type="submit" class="primary">{{ t('send_reset_link') }}</button>
   </form>
+  <p class="authfoot"><a href="/auth/login">{{ t('login') }}</a></p>
+</div>
 </div>
 {% endblock %}

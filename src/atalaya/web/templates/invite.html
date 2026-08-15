@@ -1,11 +1,14 @@
 {% extends "base.html" %}
 {% block content %}
+<div class="authwrap">
 <div class="authbox">
-  <h1>🗼 {{ t('app_name') }}</h1>
+  <div class="brand"><span class="brandmark">A</span>{{ t('app_name') }}</div>
   {% if invalid %}
     <p class="error">{{ t('invitation_invalid') }}</p>
+    <p class="hint">{{ t('login_invite_hint') }}</p>
   {% else %}
-    <p class="muted">{{ email }}</p>
+    <p class="tagline">{{ t('invite_welcome') }}</p>
+    <p class="muted" style="font-size:.9rem">{{ email }}</p>
     {% if error %}<p class="error">{{ error }}</p>{% endif %}
     <form method="post" action="/auth/invite/{{ token }}">
       <label>{{ t('password') }}<input type="password" name="password" required minlength="10"></label>
@@ -13,5 +16,6 @@
       <button type="submit" class="primary">{{ t('accept_invitation') }}</button>
     </form>
   {% endif %}
+</div>
 </div>
 {% endblock %}

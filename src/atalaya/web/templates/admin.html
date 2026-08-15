@@ -3,11 +3,26 @@
 <h2>{{ t('admin') }}</h2>
 {% if error %}<p class="error">{{ error }}</p>{% endif %}
 {% if invite_link %}
-<div class="panel ok"><strong>{{ t('admin_link') }}:</strong> <code>{{ invite_link }}</code></div>
+<div class="invitelink">
+  <strong>{{ t('admin_link') }}:</strong> <code id="invite-url">{{ invite_link }}</code>
+  <button type="button" class="button secondary" id="copy-invite"
+          data-copied="{{ t('copied') }}">{{ t('copy') }}</button>
+</div>
+<script>
+document.getElementById("copy-invite").addEventListener("click", function () {
+  var btn = this;
+  navigator.clipboard.writeText(document.getElementById("invite-url").textContent).then(function () {
+    var orig = btn.textContent;
+    btn.textContent = btn.dataset.copied;
+    setTimeout(function () { btn.textContent = orig; }, 1600);
+  });
+});
+</script>
 {% endif %}
 
 <section class="panel">
   <h3>{{ t('admin_invite_new') }}</h3>
+  <p class="section-hint">{{ t('admin_invite_hint') }}</p>
   <form method="post" action="/admin/invite" class="selectors">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <input type="email" name="email" placeholder="{{ t('email') }}" required>

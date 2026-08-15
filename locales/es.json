@@ -39,5 +39,10 @@
   "col_categoria": "Categoría", "col_descripcion": "Descripción", "col_fuentes": "Fuente(s)",
   "week": "Semana", "no_material": "Sin material este mes.",
   "briefing_title": "Briefing diario de seguridad", "generated_at": "Generado el",
-  "to_confirm_note": "Evento de una sola fuente y gravedad extrema — pendiente de corroboración. No difundir como alerta."
+  "to_confirm_note": "Evento de una sola fuente y gravedad extrema — pendiente de corroboración. No difundir como alerta.",
+  "login_invite_hint": "El acceso es por invitación. Si aún no tienes cuenta, solicita una invitación al administrador de tu delegación.",
+  "invite_welcome": "Has sido invitado/a. Define tu contraseña para crear tu cuenta.",
+  "admin_invite_hint": "Introduce el correo del nuevo usuario: se generará un enlace de un solo uso (válido 72 h) que deberás hacerle llegar. Con él definirá su contraseña y, en su primera conexión, sus países y su idioma.",
+  "copy": "Copiar", "copied": "Copiado ✓",
+  "alerts_label": "Alertas", "notes_label": "Notas"
 }
