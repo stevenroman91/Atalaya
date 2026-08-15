@@ -17,7 +17,7 @@ import re
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urljoin
 
 import feedparser
 from sqlalchemy import select, update
@@ -125,6 +125,31 @@ class Collector:
             return url
         return None
 
+    # Muchos diarios publican en /rss un *índice* HTML de sus flujos por
+    # sección en vez de un feed. Se extraen los candidatos de esa misma
+    # página (nunca inventados) y solo se ingieren los que se parsean.
+    _MAX_INDEX_FEEDS = 8
+
+    @staticmethod
+    def _feed_links_from_html(page_url: str, html: str) -> list[str]:
+        """Candidatos a feed enlazados desde una página índice."""
+        found: list[str] = []
+        for m in re.finditer(
+                r'<link[^>]+type=["\']application/(?:rss|atom)\+xml["\'][^>]*?'
+                r'href=["\']([^"\']+)["\']', html, re.I):
+            found.append(m.group(1))
+        for m in re.finditer(r'<a[^>]+href=["\']([^"\']+)["\']', html, re.I):
+            href = m.group(1)
+            low = href.lower().split("?")[0]
+            if low.endswith((".xml", ".rss")) or "/rss" in low or "/feed" in low:
+                found.append(href)
+        out: list[str] = []
+        for href in found:
+            url = urljoin(page_url, href.strip())
+            if url.startswith(("http://", "https://")) and url not in out:
+                out.append(url)
+        return out
+
     @staticmethod
     def _absolutize(domain: str, url: str | None) -> str | None:
         """Normaliza una URL de feed a forma absoluta https://…
@@ -179,12 +204,18 @@ class Collector:
     def ingest_feed(self, feed_url: str, *, run: CollectRun, country: Country,
                     zone: Zone | None, keyword: str | None, theme: str | None,
                     window_hours: float, is_google_news: bool,
-                    max_entries: int | None = None) -> int:
+                    max_entries: int | None = None,
+                    allow_index: bool = False) -> int:
         self._check_cancel(run)
         resp = self.fetcher.get(feed_url, check_robots=not is_google_news)
         if not resp:
             return 0
         parsed = feedparser.parse(resp.content)
+        if allow_index and (not parsed.version or not parsed.entries):
+            return self._ingest_feed_index(
+                feed_url, resp.text, run=run, country=country, zone=zone,
+                keyword=keyword, theme=theme, window_hours=window_hours,
+                max_entries=max_entries)
         self.stats["feeds"] += 1
         cutoff = utcnow() - timedelta(hours=window_hours)
         stored = 0
@@ -202,6 +233,33 @@ class Collector:
         # commit por feed: resiliencia ante caídas y visibilidad del flag
         # de anulación (transacción corta → la siguiente lectura ve fresco)
         self.db.commit()
+        return stored
+
+    def _ingest_feed_index(self, page_url: str, html: str, *, run: CollectRun,
+                           country: Country, zone: Zone | None,
+                           keyword: str | None, theme: str | None,
+                           window_hours: float,
+                           max_entries: int | None) -> int:
+        """La URL apuntaba a un índice HTML de flujos: ingerir los que lo sean.
+
+        Los candidatos salen de la propia página — no se construye ninguna
+        URL — y cada uno se ingiere como feed normal; los que no se parsean
+        devuelven 0 sin coste añadido.
+        """
+        cands = self._feed_links_from_html(page_url, html)
+        if not cands:
+            log.info("Índice de feeds sin candidatos: %s", page_url)
+            return 0
+        keep, dropped = cands[:self._MAX_INDEX_FEEDS], cands[self._MAX_INDEX_FEEDS:]
+        if dropped:
+            log.info("Índice %s: %d flujos ingeridos, %d omitidos (tope %d)",
+                     page_url, len(keep), len(dropped), self._MAX_INDEX_FEEDS)
+        stored = 0
+        for url in keep:
+            stored += self.ingest_feed(
+                url, run=run, country=country, zone=zone, keyword=keyword,
+                theme=theme, window_hours=window_hours, is_google_news=False,
+                max_entries=max_entries)
         return stored
 
     def _entry_date(self, entry) -> datetime | None:
@@ -337,10 +395,20 @@ class Collector:
             if not source.covers_country(country.code) or source.origin != country.code:
                 continue
             feed = self.discover_rss(source)
-            if feed:
-                self.ingest_feed(feed, run=run, country=country, zone=None,
-                                 keyword=None, theme=None,
-                                 window_hours=window, is_google_news=False)
+            if not feed:
+                continue
+            before = self.stats["feeds"]
+            self.ingest_feed(feed, run=run, country=country, zone=None,
+                             keyword=None, theme=None, window_hours=window,
+                             is_google_news=False, allow_index=True)
+            # «feeds» solo crece cuando algo se parseó como flujo real: si no
+            # se movió, la fuente no ha sido consultada de verdad y así debe
+            # figurar en el panel de cobertura.
+            if self.stats["feeds"] == before:
+                self.mark_source(source.domain, source.name, ok=False,
+                                 error="el flujo no devolvió entradas")
+            else:
+                self.mark_source(source.domain, source.name, ok=True)
 
     def collect_daily(self, run: CollectRun, countries: list[str] | None = None) -> dict:
         sched = load_schedule()["daily"]

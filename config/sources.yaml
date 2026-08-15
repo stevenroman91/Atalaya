@@ -34,8 +34,12 @@ sources:
 
   # ── México ────────────────────────────────────────────────────────────────
   - { name: "El Universal",       domain: "eluniversal.com.mx",  origin: MX, covers: [MX], lang: es, type: independiente, rss: null }
-  - { name: "Milenio",            domain: "milenio.com",         origin: MX, covers: [MX], lang: es, type: independiente, rss: null }
-  - { name: "La Jornada",         domain: "jornada.com.mx",      origin: MX, covers: [MX, PY], lang: es, type: independiente, rss: null,
+  # rss aportado por el operador (su portada bloquea al robot): si la URL es
+  # un índice HTML de flujos, el colector ingiere los flujos que enlaza.
+  - { name: "Milenio",            domain: "milenio.com",         origin: MX, covers: [MX], lang: es, type: independiente,
+      rss: "https://www.milenio.com/rss" }
+  - { name: "La Jornada",         domain: "jornada.com.mx",      origin: MX, covers: [MX, PY], lang: es, type: independiente,
+      rss: "https://www.jornada.com.mx/rss/",
       section_url: "https://www.jornada.com.mx/category/mundo" }
   - { name: "La Silla Rota",      domain: "lasillarota.com",     origin: MX, covers: [MX, SV], lang: es, type: independiente, rss: null }
   - { name: "Reforma",            domain: "reforma.com",         origin: MX, covers: [MX], lang: es, type: independiente, rss: null }
