@@ -13,6 +13,7 @@ from atalaya.web import auth
 def _fetcher(base: str) -> PoliteFetcher:
     f = PoliteFetcher(base_url_override=base)
     f.delay = 0.0
+    f.host_delays = {}
     return f
 
 

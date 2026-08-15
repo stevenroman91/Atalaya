@@ -23,6 +23,10 @@ class PoliteFetcher:
     def __init__(self, base_url_override: str | None = None):
         cfg = load_schedule().get("collector", {})
         self.delay = float(cfg.get("request_delay_seconds", 1.5))
+        # excepciones por host: p. ej. news.google.com soporta un ritmo mucho
+        # mayor que un pequeño diario local — la cortesía se calibra por host
+        self.host_delays = {str(h): float(d)
+                            for h, d in (cfg.get("per_host_delay_seconds") or {}).items()}
         self.timeout = float(cfg.get("timeout_seconds", 20))
         self.user_agent = cfg.get("user_agent", "AtalayaBot/1.0")
         # Uso concurrente (colecta paralela): httpx.Client es thread-safe;
@@ -77,9 +81,10 @@ class PoliteFetcher:
         distintos avanzan en paralelo sin bloquearse.
         """
         host = urlparse(url).netloc
+        delay = self.host_delays.get(host, self.delay)
         with self._rate_lock:
             now = time.monotonic()
-            slot = max(now, self._last_request.get(host, 0.0) + self.delay)
+            slot = max(now, self._last_request.get(host, 0.0) + delay)
             self._last_request[host] = slot
         wait = slot - time.monotonic()
         if wait > 0:

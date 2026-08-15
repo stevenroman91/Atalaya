@@ -16,6 +16,8 @@ monthly:
   timezone: "America/Mexico_City"
 collector:
   request_delay_seconds: 1.5   # cortesía entre peticiones al mismo host
+  per_host_delay_seconds:      # excepciones (infraestructuras de gran capacidad)
+    news.google.com: 0.3
   timeout_seconds: 20
   user_agent: "AtalayaBot/1.0 (+vigilancia de seguridad; contacto: admin)"
   max_articles_per_feed: 50

@@ -10,6 +10,7 @@ from atalaya.db.models import CollectRun
 def _fetcher(base: str) -> PoliteFetcher:
     f = PoliteFetcher(base_url_override=base)
     f.delay = 0.0
+    f.host_delays = {}
     return f
 
 
