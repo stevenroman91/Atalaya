@@ -35,7 +35,7 @@ def test_runner_marks_cancelled_run(db, fixture_base, monkeypatch):
     assert run.stats.get("cancelled") is True
 
 
-def test_parallel_run_countries_merges_stats(db, fixture_base):
+def test_parallel_run_parallel_merges_stats(db, fixture_base):
     from atalaya.config import load_countries
 
     run = CollectRun(kind="daily")
@@ -52,7 +52,7 @@ def test_parallel_run_countries_merges_stats(db, fixture_base):
         col.stats["stored"] += 1
         col.stats["reject_reasons"]["test"] = 1
 
-    collector._run_countries(run, todo, work)
+    collector._run_parallel(run, todo, work)
     assert collector.stats["stored"] == 2
     assert collector.stats["reject_reasons"]["test"] == 2
 
@@ -65,7 +65,7 @@ def test_sequential_fallback_without_factory(db, fixture_base):
     db.commit()
     collector = Collector(db, _fetcher(fixture_base))  # sans session_factory
     seen = []
-    collector._run_countries(run, list(load_countries().values())[:2],
+    collector._run_parallel(run, list(load_countries().values())[:2],
                              lambda col, r, c: seen.append((col is collector, c.code)))
     assert all(same for same, _ in seen) and len(seen) == 2
 

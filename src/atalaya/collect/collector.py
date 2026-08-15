@@ -21,6 +21,7 @@ from urllib.parse import quote_plus
 
 import feedparser
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from atalaya.collect.extract import extract_article, _parse_dt
@@ -257,23 +258,32 @@ class Collector:
         )
         if not text:
             self.stats["title_only"] += 1
-        self.db.add(art)
-        self.db.flush()
+        try:
+            # savepoint: dos hilos (zonas distintas) pueden descubrir el mismo
+            # artículo a la vez y pasar ambos el dedupe — el UNIQUE de la URL
+            # convierte al segundo en duplicado, sin romper la transacción
+            with self.db.begin_nested():
+                self.db.add(art)
+                self.db.flush()
+        except IntegrityError:
+            self.stats["duplicate_url"] += 1
+            return False
         self.stats["stored"] += 1
         return True
 
     # ── colecta diaria (§5.1) ────────────────────────────────────────────
-    def _daily_country(self, run: CollectRun, country: Country, window: float,
-                       kws: dict) -> None:
+    def _daily_zone(self, run: CollectRun, country: Country, zone: Zone,
+                    window: float, kws: dict) -> None:
         words = kws.get(country.lang, kws["es"])
-        for zone in country.zones:
-            for kw in words:
-                for term in zone.query_terms:
-                    url = gn_feed_url(f'{kw} "{term}"', country.gn, hours=int(window))
-                    self.ingest_feed(url, run=run, country=country, zone=zone,
-                                     keyword=kw, theme=None,
-                                     window_hours=window, is_google_news=True)
-        # flujos RSS directos de las fuentes que cubren el país
+        for kw in words:
+            for term in zone.query_terms:
+                url = gn_feed_url(f'{kw} "{term}"', country.gn, hours=int(window))
+                self.ingest_feed(url, run=run, country=country, zone=zone,
+                                 keyword=kw, theme=None,
+                                 window_hours=window, is_google_news=True)
+
+    def _daily_rss(self, run: CollectRun, country: Country, window: float) -> None:
+        """Flujos RSS directos de las fuentes que cubren el país."""
         for source in load_sources():
             if not source.covers_country(country.code) or source.origin != country.code:
                 continue
@@ -289,8 +299,22 @@ class Collector:
         kws = load_keywords()["daily"]
         todo = [c for c in load_countries().values()
                 if c.daily and not (countries and c.code not in countries)]
-        self._run_countries(run, todo,
-                            lambda col, r, c: col._daily_country(r, c, window, kws))
+        # La unidad de paralelismo es la zona (México tiene ~10), no el país:
+        # así un solo país con muchas zonas también aprovecha los workers.
+        tasks: list[tuple] = []
+        for country in todo:
+            for zone in country.zones:
+                tasks.append(("zone", country, zone))
+            tasks.append(("rss", country, None))
+
+        def work(col: "Collector", wrun: CollectRun, task: tuple) -> None:
+            kind, country, zone = task
+            if kind == "zone":
+                col._daily_zone(wrun, country, zone, window, kws)
+            else:
+                col._daily_rss(wrun, country, window)
+
+        self._run_parallel(run, tasks, work)
         self.db.commit()
         return self.stats
 
@@ -311,34 +335,35 @@ class Collector:
         weekly_kws = load_keywords()["weekly"]
         todo = [c for c in load_countries().values()
                 if c.weekly and not (countries and c.code not in countries)]
-        self._run_countries(run, todo,
-                            lambda col, r, c: col._weekly_country(r, c, window, weekly_kws))
+        self._run_parallel(run, todo,
+                           lambda col, r, c: col._weekly_country(r, c, window, weekly_kws))
         self.db.commit()
         return self.stats
 
     # ── orquestación secuencial / paralela ───────────────────────────────
-    def _run_countries(self, run: CollectRun, todo: list[Country], work) -> None:
-        """Ejecuta `work(collector, run, country)` para cada país.
+    def _run_parallel(self, run: CollectRun, items: list, work) -> None:
+        """Ejecuta `work(collector, run, item)` para cada elemento.
 
-        Con session_factory y parallel_workers > 1, los países se reparten
-        entre hilos: cada hilo usa su propia sesión DB y comparte el
-        PoliteFetcher (thread-safe, cortesía por host preservada). El límite
-        de 1,5 s por host sigue aplicando globalmente, de modo que ningún
-        medio recibe más carga que en modo secuencial.
+        Con session_factory y parallel_workers > 1, los elementos (zonas en
+        la colecta diaria, países en la semanal) se reparten entre hilos:
+        cada hilo usa su propia sesión DB y comparte el PoliteFetcher
+        (thread-safe, cortesía por host preservada). El límite de 1,5 s por
+        host sigue aplicando globalmente, de modo que ningún medio recibe
+        más carga que en modo secuencial.
         """
         workers = int(load_schedule().get("collector", {}).get("parallel_workers", 4))
-        if not self.session_factory or workers <= 1 or len(todo) <= 1:
-            for country in todo:
-                work(self, run, country)
+        if not self.session_factory or workers <= 1 or len(items) <= 1:
+            for item in items:
+                work(self, run, item)
             return
 
-        def per_country(country: Country) -> tuple[dict, bool]:
+        def per_item(item) -> tuple[dict, bool]:
             session = self.session_factory()
             try:
                 worker = Collector(session, self.fetcher)
                 wrun = session.get(CollectRun, run.id)
                 try:
-                    work(worker, wrun, country)
+                    work(worker, wrun, item)
                     session.commit()
                     return worker.stats, False
                 except RunCancelled:
@@ -348,9 +373,9 @@ class Collector:
                 session.close()
 
         cancelled = False
-        with ThreadPoolExecutor(max_workers=min(workers, len(todo)),
+        with ThreadPoolExecutor(max_workers=min(workers, len(items)),
                                 thread_name_prefix="collect") as pool:
-            for stats, was_cancelled in pool.map(per_country, todo):
+            for stats, was_cancelled in pool.map(per_item, items):
                 self._merge_stats(stats)
                 cancelled = cancelled or was_cancelled
         if cancelled:
