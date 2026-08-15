@@ -71,7 +71,7 @@ class Article(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     run_id: Mapped[int | None] = mapped_column(ForeignKey("collect_runs.id"))
     url: Mapped[str] = mapped_column(String(2048))          # URL canónica, redirecciones GN resueltas
-    gn_url: Mapped[str | None] = mapped_column(String(2048))
+    gn_url: Mapped[str | None] = mapped_column(String(2048), index=True)
     domain: Mapped[str] = mapped_column(String(255))
     source_name: Mapped[str | None] = mapped_column(String(255))
     source_type: Mapped[str | None] = mapped_column(String(32))  # independiente|estatal|internacional|off_whitelist

@@ -181,6 +181,16 @@ class Collector:
         gn_url = None
         if is_google_news:
             gn_url = link
+            # dedupe ANTES de resolver: la resolución cuesta una petición a
+            # news.google.com (1,5 s por cortesía) — en re-runs es el grueso
+            # del tiempo. Un enlace GN ya visto no se vuelve a resolver.
+            seen = self.db.scalar(select(Article).where(Article.gn_url == gn_url))
+            if seen:
+                self.stats["duplicate_url"] += 1
+                if theme and seen.theme is None:
+                    seen.theme = theme
+                    self.stats["theme_backfilled"] = self.stats.get("theme_backfilled", 0) + 1
+                return False
             resolved = self.fetcher.resolve_google_news_url(link)
             if not resolved:
                 self._reject("redirección Google News no resoluble")
