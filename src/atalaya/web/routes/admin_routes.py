@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 import os
 import threading
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import RedirectResponse
@@ -32,13 +33,21 @@ def admin_home(request: Request, invite_link: str | None = None, error: str | No
     sources = list(db.scalars(select(SourceRecord).order_by(
         desc(SourceRecord.consecutive_failures), SourceRecord.domain)))
     runs = list(db.scalars(select(CollectRun).order_by(desc(CollectRun.started_at)).limit(20)))
-    collect_running = db.scalar(
-        select(CollectRun).where(CollectRun.finished_at.is_(None))
-        .order_by(desc(CollectRun.started_at))) is not None
+    collect_running = db.scalar(_active_run_query()) is not None
     return render(request, "admin.html", user=user, csrf=sess.csrf_token,
                   invitations=invitations, users=users, sources=sources,
                   runs=runs, invite_link=invite_link, error=error, notice=notice,
                   collect_running=collect_running, failing_threshold=alert_days)
+
+
+def _active_run_query():
+    """Runs sin terminar y recientes. Un run cuyo proceso murió (redeploy,
+    restart) queda con finished_at NULL para siempre: pasadas 2 h se ignora
+    para no bloquear el botón de colecta manual."""
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=2)
+    return (select(CollectRun)
+            .where(CollectRun.finished_at.is_(None), CollectRun.started_at > cutoff)
+            .order_by(desc(CollectRun.started_at)))
 
 
 def _collect_in_background(kind: str) -> None:
@@ -60,7 +69,7 @@ def _collect_in_background(kind: str) -> None:
 async def collect_now(request: Request, user_sess=Depends(require_admin),
                       db: Session = Depends(get_db)):
     await check_csrf(request, user_sess)
-    in_progress = db.scalar(select(CollectRun).where(CollectRun.finished_at.is_(None)))
+    in_progress = db.scalar(_active_run_query())
     if in_progress is not None:
         return RedirectResponse("/admin?notice=running", status_code=303)
     _collect_in_background("daily")
