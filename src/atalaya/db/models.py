@@ -37,6 +37,7 @@ class CollectRun(Base):
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     ok: Mapped[bool | None] = mapped_column(Boolean)
+    cancel_requested: Mapped[bool] = mapped_column(Boolean, default=False)  # anulación cooperativa desde admin
     stats: Mapped[dict] = mapped_column(JSON, default=dict)
 
 

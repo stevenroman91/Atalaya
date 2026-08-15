@@ -51,5 +51,7 @@
   "admin_collect_in_progress": "Collection in progress…",
   "admin_collect_started": "Daily collection started in the background. It may take 30–60 min; reload this page to follow progress under \"Runs\".",
   "admin_collect_running": "A collection is already running — wait for it to finish.",
-  "admin_collect_hint": "The daily collection runs automatically via cron. This button triggers it manually (initial fill or testing)."
+  "admin_collect_hint": "The daily collection runs automatically via cron. This button triggers it manually (initial fill or testing).",
+  "admin_cancel_collect": "Cancel collection",
+  "admin_collect_cancelling": "Cancellation requested — collection will stop within a few seconds, keeping what was already stored."
 }

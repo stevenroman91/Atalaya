@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import logging
 import re
+import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from urllib.parse import quote_plus
 
@@ -34,6 +36,10 @@ log = logging.getLogger(__name__)
 GN_BASE = "https://news.google.com/rss/search"
 
 
+class RunCancelled(Exception):
+    """La colecta fue anulada desde el panel de administración."""
+
+
 def gn_feed_url(query: str, gn: dict, hours: int = 24) -> str:
     when = f" when:{hours}h" if hours else ""
     q = quote_plus(query + when)
@@ -42,11 +48,32 @@ def gn_feed_url(query: str, gn: dict, hours: int = 24) -> str:
 
 
 class Collector:
-    def __init__(self, db: Session, fetcher: PoliteFetcher | None = None):
+    def __init__(self, db: Session, fetcher: PoliteFetcher | None = None,
+                 session_factory=None):
         self.db = db
         self.fetcher = fetcher or PoliteFetcher()
+        # session_factory habilita la colecta paralela por país: cada hilo
+        # trabaja con su propia sesión. Sin factory → modo secuencial.
+        self.session_factory = session_factory
+        self._last_cancel_check = 0.0
         self.stats = {"feeds": 0, "entries": 0, "stored": 0, "rejected": 0,
                       "title_only": 0, "duplicate_url": 0, "reject_reasons": {}}
+
+    # ── anulación cooperativa ────────────────────────────────────────────
+    def _check_cancel(self, run: CollectRun) -> None:
+        """Consulta (como mucho cada 3 s) si el admin pidió anular el run.
+
+        Se llama entre feeds, tras un commit: la lectura ve el valor fresco
+        escrito por el proceso web.
+        """
+        now = time.monotonic()
+        if now - self._last_cancel_check < 3.0:
+            return
+        self._last_cancel_check = now
+        flag = self.db.scalar(select(CollectRun.cancel_requested)
+                              .where(CollectRun.id == run.id))
+        if flag:
+            raise RunCancelled()
 
     # ── helpers ──────────────────────────────────────────────────────────
     def _reject(self, reason: str) -> None:
@@ -103,6 +130,7 @@ class Collector:
                     zone: Zone | None, keyword: str | None, theme: str | None,
                     window_hours: float, is_google_news: bool,
                     max_entries: int | None = None) -> int:
+        self._check_cancel(run)
         resp = self.fetcher.get(feed_url, check_robots=not is_google_news)
         if not resp:
             return 0
@@ -118,6 +146,9 @@ class Collector:
                                   keyword=keyword, theme=theme, cutoff=cutoff,
                                   is_google_news=is_google_news):
                 stored += 1
+        # commit por feed: resiliencia ante caídas y visibilidad del flag
+        # de anulación (transacción corta → la siguiente lectura ve fresco)
+        self.db.commit()
         return stored
 
     def _entry_date(self, entry) -> datetime | None:
@@ -219,47 +250,104 @@ class Collector:
         return True
 
     # ── colecta diaria (§5.1) ────────────────────────────────────────────
+    def _daily_country(self, run: CollectRun, country: Country, window: float,
+                       kws: dict) -> None:
+        words = kws.get(country.lang, kws["es"])
+        for zone in country.zones:
+            for kw in words:
+                for term in zone.query_terms:
+                    url = gn_feed_url(f'{kw} "{term}"', country.gn, hours=int(window))
+                    self.ingest_feed(url, run=run, country=country, zone=zone,
+                                     keyword=kw, theme=None,
+                                     window_hours=window, is_google_news=True)
+        # flujos RSS directos de las fuentes que cubren el país
+        for source in load_sources():
+            if not source.covers_country(country.code) or source.origin != country.code:
+                continue
+            feed = self.discover_rss(source)
+            if feed:
+                self.ingest_feed(feed, run=run, country=country, zone=None,
+                                 keyword=None, theme=None,
+                                 window_hours=window, is_google_news=False)
+
     def collect_daily(self, run: CollectRun, countries: list[str] | None = None) -> dict:
         sched = load_schedule()["daily"]
         window = float(sched.get("window_hours", 24)) + float(sched.get("overlap_hours", 2))
         kws = load_keywords()["daily"]
-        for country in load_countries().values():
-            if not country.daily or (countries and country.code not in countries):
-                continue
-            words = kws.get(country.lang, kws["es"])
-            for zone in country.zones:
-                for kw in words:
-                    for term in zone.query_terms:
-                        url = gn_feed_url(f'{kw} "{term}"', country.gn, hours=int(window))
-                        self.ingest_feed(url, run=run, country=country, zone=zone,
-                                         keyword=kw, theme=None,
-                                         window_hours=window, is_google_news=True)
-            # flujos RSS directos de las fuentes que cubren el país
-            for source in load_sources():
-                if not source.covers_country(country.code) or source.origin != country.code:
-                    continue
-                feed = self.discover_rss(source)
-                if feed:
-                    self.ingest_feed(feed, run=run, country=country, zone=None,
-                                     keyword=None, theme=None,
-                                     window_hours=window, is_google_news=False)
+        todo = [c for c in load_countries().values()
+                if c.daily and not (countries and c.code not in countries)]
+        self._run_countries(run, todo,
+                            lambda col, r, c: col._daily_country(r, c, window, kws))
         self.db.commit()
         return self.stats
 
     # ── colecta semanal (§6.2) ───────────────────────────────────────────
+    def _weekly_country(self, run: CollectRun, country: Country, window: float,
+                        weekly_kws: dict) -> None:
+        for theme, langs in weekly_kws.items():
+            for kw in langs.get(country.lang, langs["es"]):
+                url = gn_feed_url(f'{kw} {country.name}', country.gn, hours=int(window))
+                self.ingest_feed(url, run=run, country=country, zone=None,
+                                 keyword=kw, theme=theme,
+                                 window_hours=window, is_google_news=True,
+                                 max_entries=15)
+
     def collect_weekly(self, run: CollectRun, countries: list[str] | None = None) -> dict:
         sched = load_schedule()["weekly"]
         window = float(sched.get("window_days", 7)) * 24 + float(sched.get("overlap_hours", 6))
         weekly_kws = load_keywords()["weekly"]
-        for country in load_countries().values():
-            if not country.weekly or (countries and country.code not in countries):
-                continue
-            for theme, langs in weekly_kws.items():
-                for kw in langs.get(country.lang, langs["es"]):
-                    url = gn_feed_url(f'{kw} {country.name}', country.gn, hours=int(window))
-                    self.ingest_feed(url, run=run, country=country, zone=None,
-                                     keyword=kw, theme=theme,
-                                     window_hours=window, is_google_news=True,
-                                     max_entries=15)
+        todo = [c for c in load_countries().values()
+                if c.weekly and not (countries and c.code not in countries)]
+        self._run_countries(run, todo,
+                            lambda col, r, c: col._weekly_country(r, c, window, weekly_kws))
         self.db.commit()
         return self.stats
+
+    # ── orquestación secuencial / paralela ───────────────────────────────
+    def _run_countries(self, run: CollectRun, todo: list[Country], work) -> None:
+        """Ejecuta `work(collector, run, country)` para cada país.
+
+        Con session_factory y parallel_workers > 1, los países se reparten
+        entre hilos: cada hilo usa su propia sesión DB y comparte el
+        PoliteFetcher (thread-safe, cortesía por host preservada). El límite
+        de 1,5 s por host sigue aplicando globalmente, de modo que ningún
+        medio recibe más carga que en modo secuencial.
+        """
+        workers = int(load_schedule().get("collector", {}).get("parallel_workers", 4))
+        if not self.session_factory or workers <= 1 or len(todo) <= 1:
+            for country in todo:
+                work(self, run, country)
+            return
+
+        def per_country(country: Country) -> tuple[dict, bool]:
+            session = self.session_factory()
+            try:
+                worker = Collector(session, self.fetcher)
+                wrun = session.get(CollectRun, run.id)
+                try:
+                    work(worker, wrun, country)
+                    session.commit()
+                    return worker.stats, False
+                except RunCancelled:
+                    session.commit()  # conserva lo ya almacenado
+                    return worker.stats, True
+            finally:
+                session.close()
+
+        cancelled = False
+        with ThreadPoolExecutor(max_workers=min(workers, len(todo)),
+                                thread_name_prefix="collect") as pool:
+            for stats, was_cancelled in pool.map(per_country, todo):
+                self._merge_stats(stats)
+                cancelled = cancelled or was_cancelled
+        if cancelled:
+            raise RunCancelled()
+
+    def _merge_stats(self, other: dict) -> None:
+        for key, value in other.items():
+            if key == "reject_reasons":
+                mine = self.stats.setdefault("reject_reasons", {})
+                for reason, n in value.items():
+                    mine[reason] = mine.get(reason, 0) + n
+            elif isinstance(value, int):
+                self.stats[key] = self.stats.get(key, 0) + value

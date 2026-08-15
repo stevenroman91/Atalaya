@@ -76,6 +76,18 @@ async def collect_now(request: Request, user_sess=Depends(require_admin),
     return RedirectResponse("/admin?notice=started", status_code=303)
 
 
+@router.post("/collect-cancel")
+async def collect_cancel(request: Request, user_sess=Depends(require_admin),
+                         db: Session = Depends(get_db)):
+    await check_csrf(request, user_sess)
+    run = db.scalar(_active_run_query())
+    if run is None:
+        return RedirectResponse("/admin", status_code=303)
+    run.cancel_requested = True
+    db.commit()
+    return RedirectResponse("/admin?notice=cancelling", status_code=303)
+
+
 @router.post("/invite")
 async def invite(request: Request, user_sess=Depends(require_admin),
                  db: Session = Depends(get_db)):

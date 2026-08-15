@@ -7,6 +7,7 @@ from __future__ import annotations
 import base64
 import logging
 import re
+import threading
 import time
 import urllib.robotparser
 from urllib.parse import urlparse
@@ -24,8 +25,12 @@ class PoliteFetcher:
         self.delay = float(cfg.get("request_delay_seconds", 1.5))
         self.timeout = float(cfg.get("timeout_seconds", 20))
         self.user_agent = cfg.get("user_agent", "AtalayaBot/1.0")
+        # Uso concurrente (colecta paralela): httpx.Client es thread-safe;
+        # los diccionarios de estado se protegen con locks.
         self._last_request: dict[str, float] = {}
+        self._rate_lock = threading.Lock()
         self._robots: dict[str, urllib.robotparser.RobotFileParser | None] = {}
+        self._robots_lock = threading.Lock()
         # En tests, todas las peticiones se reescriben hacia el servidor de fixtures.
         self.base_url_override = base_url_override
         self.client = httpx.Client(
@@ -37,8 +42,9 @@ class PoliteFetcher:
     # ── robots.txt ───────────────────────────────────────────────────────
     def _robots_for(self, url: str) -> urllib.robotparser.RobotFileParser | None:
         host = urlparse(url).netloc
-        if host in self._robots:
-            return self._robots[host]
+        with self._robots_lock:
+            if host in self._robots:
+                return self._robots[host]
         rp = urllib.robotparser.RobotFileParser()
         try:
             robots_url = self._rewrite(f"https://{host}/robots.txt")
@@ -49,7 +55,8 @@ class PoliteFetcher:
                 rp = None  # sin robots.txt → permitido
         except Exception:
             rp = None
-        self._robots[host] = rp
+        with self._robots_lock:
+            self._robots[host] = rp
         return rp
 
     def allowed(self, url: str) -> bool:
@@ -58,11 +65,21 @@ class PoliteFetcher:
 
     # ── rate limiting por host ───────────────────────────────────────────
     def _wait_politely(self, url: str) -> None:
+        """Reserva un turno para el host y espera hasta que llegue.
+
+        La reserva (lectura + actualización de _last_request) es atómica, y
+        la espera ocurre fuera del lock: N hilos que golpean el mismo host
+        quedan espaciados self.delay segundos entre sí, mientras que hosts
+        distintos avanzan en paralelo sin bloquearse.
+        """
         host = urlparse(url).netloc
-        elapsed = time.monotonic() - self._last_request.get(host, 0.0)
-        if elapsed < self.delay:
-            time.sleep(self.delay - elapsed)
-        self._last_request[host] = time.monotonic()
+        with self._rate_lock:
+            now = time.monotonic()
+            slot = max(now, self._last_request.get(host, 0.0) + self.delay)
+            self._last_request[host] = slot
+        wait = slot - time.monotonic()
+        if wait > 0:
+            time.sleep(wait)
 
     def _rewrite(self, url: str) -> str:
         if self.base_url_override:

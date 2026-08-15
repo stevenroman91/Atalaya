@@ -51,5 +51,7 @@
   "admin_collect_in_progress": "Colecta en curso…",
   "admin_collect_started": "Colecta diaria lanzada en segundo plano. Puede tardar 30–60 min; recarga esta página para seguir el progreso en «Runs».",
   "admin_collect_running": "Ya hay una colecta en curso — espera a que termine.",
-  "admin_collect_hint": "La colecta diaria se ejecuta automáticamente por cron. Este botón la lanza manualmente (primer llenado o pruebas)."
+  "admin_collect_hint": "La colecta diaria se ejecuta automáticamente por cron. Este botón la lanza manualmente (primer llenado o pruebas).",
+  "admin_cancel_collect": "Anular colecta",
+  "admin_collect_cancelling": "Anulación solicitada — la colecta se detendrá en unos segundos y conservará lo ya almacenado."
 }

@@ -51,5 +51,7 @@
   "admin_collect_in_progress": "Coleta em andamento…",
   "admin_collect_started": "Coleta diária iniciada em segundo plano. Pode levar 30–60 min; recarregue esta página para acompanhar o progresso em \"Runs\".",
   "admin_collect_running": "Já há uma coleta em andamento — aguarde a conclusão.",
-  "admin_collect_hint": "A coleta diária é executada automaticamente via cron. Este botão a dispara manualmente (primeiro preenchimento ou testes)."
+  "admin_collect_hint": "A coleta diária é executada automaticamente via cron. Este botão a dispara manualmente (primeiro preenchimento ou testes).",
+  "admin_cancel_collect": "Cancelar coleta",
+  "admin_collect_cancelling": "Cancelamento solicitado — a coleta será interrompida em alguns segundos, mantendo o que já foi armazenado."
 }

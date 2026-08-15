@@ -11,13 +11,19 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from atalaya.collect.collector import Collector
+from atalaya.collect.collector import Collector, RunCancelled
 from atalaya.collect.fetcher import PoliteFetcher
 from atalaya.db.models import CollectRun, utcnow
 from atalaya.process.pipeline import process_daily
 from atalaya.process.translate import translate_pending
 
 log = logging.getLogger(__name__)
+
+
+def _session_factory():
+    """Factory de sesiones para la colecta paralela por país."""
+    from atalaya.db import SessionLocal
+    return SessionLocal
 
 
 def _finish(db: Session, run: CollectRun, stats: dict, ok: bool = True) -> None:
@@ -33,12 +39,17 @@ def run_daily(db: Session, countries: list[str] | None = None,
     db.add(run)
     db.commit()
     stats: dict = {}
+    collector = Collector(db, fetcher, session_factory=_session_factory())
     try:
-        collector = Collector(db, fetcher)
         stats["collect"] = collector.collect_daily(run, countries)
         stats["process"] = process_daily(db, run, countries)
         stats["translate"] = translate_pending(db)
         _finish(db, run, stats)
+    except RunCancelled:
+        log.info("job diario anulado por el administrador")
+        stats["collect"] = collector.stats
+        stats["cancelled"] = True
+        _finish(db, run, stats, ok=False)
     except Exception:
         log.exception("job diario falló")
         _finish(db, run, stats, ok=False)
@@ -53,11 +64,16 @@ def run_weekly(db: Session, countries: list[str] | None = None,
     db.add(run)
     db.commit()
     stats: dict = {}
+    collector = Collector(db, fetcher, session_factory=_session_factory())
     try:
-        collector = Collector(db, fetcher)
         stats["collect"] = collector.collect_weekly(run, countries)
         stats["process"] = process_weekly(db, run, countries)
         _finish(db, run, stats)
+    except RunCancelled:
+        log.info("job semanal anulado por el administrador")
+        stats["collect"] = collector.stats
+        stats["cancelled"] = True
+        _finish(db, run, stats, ok=False)
     except Exception:
         log.exception("job semanal falló")
         _finish(db, run, stats, ok=False)

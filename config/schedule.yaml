@@ -19,4 +19,5 @@ collector:
   timeout_seconds: 20
   user_agent: "AtalayaBot/1.0 (+vigilancia de seguridad; contacto: admin)"
   max_articles_per_feed: 50
+  parallel_workers: 4          # países en paralelo (1 = secuencial); la cortesía por host se mantiene
   source_failure_alert_days: 3 # fuente inalcanzable N días seguidos → visible en admin
