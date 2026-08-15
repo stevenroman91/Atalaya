@@ -5,22 +5,33 @@ corroboration, alertes et briefings multilingues.
 
 ## Destinataire
 
-**Le produit est destiné à être utilisé par GEOS**, société de gestion des
-risques. Les lecteurs sont donc des professionnels de la sûreté, pas des
-utilisateurs occasionnels. Trois conséquences qui priment sur le confort de
-développement :
+**Atalaya est l'outil de veille des analystes GEOS**, société de gestion des
+risques. Ce n'est pas un produit de diffusion : les analystes filtrent en
+aval et remettent en page à leur façon s'ils le souhaitent. Atalaya leur
+fournit la matière première et le premier tri, pas le livrable final.
 
-- **Un faux positif coûte plus cher qu'un manque.** Un analyste qui voit une
-  fois un séisme colombien étiqueté Mexique cesse de faire confiance à
-  l'outil, et cette confiance ne revient pas. En cas d'arbitrage entre bruit
-  et silence, choisir le silence et le signaler.
-- **L'outil assiste l'analyste, il ne le remplace pas.** D'où les résumés
-  strictement extractifs et les sources toujours citées : le lecteur doit
-  pouvoir remonter à la source en un clic et vérifier. Une reformulation
-  fluide mais invérifiable est un défaut, pas une amélioration.
-- **Les recommandations sont des consignes de sûreté.** Elles peuvent être
-  transmises à des personnes sur le terrain. Elles relèvent de la doctrine du
-  client : à faire valider par GEOS, jamais à inventer ni à durcir seul.
+Ce que ça implique, par ordre d'importance :
+
+- **Ne jamais écarter en silence.** L'analyste est là pour trancher les cas
+  douteux ; ce qui est supprimé sans trace ne lui parvient jamais et ne peut
+  pas être rattrapé. Face à un doute, marquer et laisser passer plutôt que
+  jeter. Un événement mal étiqueté qu'il corrige coûte moins cher qu'un
+  événement réel qu'il n'a jamais vu.
+- **Trancher n'est pas notre rôle, exposer l'incertitude l'est.** Statut
+  « à confirmer », sources visibles, motif du classement : l'outil montre son
+  raisonnement pour que l'analyste puisse le contredire vite.
+- **Tout doit être vérifiable en un clic.** D'où les résumés strictement
+  extractifs et les sources toujours citées. Une reformulation fluide mais
+  invérifiable fait perdre du temps à l'analyste au lieu de lui en faire
+  gagner : c'est un défaut, pas une amélioration.
+- **Optimiser le temps de tri.** Filtres, recherche, tri, dédoublonnage :
+  l'analyste passe la journée dans l'outil, chaque friction se paie.
+- **Les recommandations sont un point de départ, pas une consigne validée.**
+  Elles relèvent de la doctrine GEOS. À faire relire par eux ; ne jamais en
+  inventer ni en durcir seul.
+
+Ce qui n'est donc *pas* l'objectif : charte graphique client, livrables
+brandés, cloisonnement multi-clients. La mise en page finale leur appartient.
 
 ## Règles non négociables
 

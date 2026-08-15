@@ -78,10 +78,20 @@ class Collector:
             raise RunCancelled()
 
     # ── helpers ──────────────────────────────────────────────────────────
-    def _reject(self, reason: str) -> None:
+    def _reject(self, reason: str, *, title: str | None = None,
+                url: str | None = None) -> None:
+        """Descarta una entrada. `title`/`url` para los rechazos de criterio.
+
+        El analista filtra aguas abajo: lo que se descarta por juicio (sección,
+        perímetro, granja de contenido) debe quedar rastreable para poder
+        auditarlo, a diferencia de los rechazos mecánicos (sin fecha, fuera de
+        ventana) que no aportan nada al leerlos.
+        """
         self.stats["rejected"] += 1
         rr = self.stats["reject_reasons"]
         rr[reason] = rr.get(reason, 0) + 1
+        if title:
+            log.info("descartado [%s] %s — %s", reason, title[:120], url or "")
 
     def _source_record(self, domain: str, name: str) -> SourceRecord:
         rec = self.db.scalar(select(SourceRecord).where(SourceRecord.domain == domain))
@@ -294,7 +304,8 @@ class Collector:
         # comenta un hecho, no lo describe.
         section = off_topic_section(link)
         if section:
-            self._reject(f"sección ajena a la vigilancia: {section}")
+            self._reject(f"sección ajena a la vigilancia: {section}",
+                         title=title, url=link)
             return False
 
         # §4 — el hecho debe ocurrir en el perímetro. La prensa nacional cubre
@@ -309,7 +320,8 @@ class Collector:
                 zone = None  # la zona del feed de origen ya no aplica
                 self.stats["reattributed"] = self.stats.get("reattributed", 0) + 1
             else:
-                self._reject(f"hecho localizado fuera del perímetro: {abroad}")
+                self._reject(f"hecho localizado fuera del perímetro: {abroad}",
+                             title=title, url=link)
                 return False
 
         # Fecha del flujo: primer filtro de frescura (la fecha real del
@@ -342,7 +354,8 @@ class Collector:
         domain = norm_domain(link)
         source = match_source(link)
         if source and not source.covers_country(country.code):
-            self._reject(f"fuente {source.domain} no cubre {country.code}")
+            self._reject(f"fuente {source.domain} no cubre {country.code}",
+                         title=title, url=link)
             return False
 
         # dedupe por URL canónica (idempotencia)
@@ -381,7 +394,8 @@ class Collector:
             # fuera de lista blanca: filtro granja de contenido (§7.5); la
             # regla «solo corrobora, nunca funda» se aplica en el scoring
             if looks_like_content_farm(domain, title, text or ""):
-                self._reject(f"señales de granja de contenido: {domain}")
+                self._reject(f"señales de granja de contenido: {domain}",
+                             title=title, url=link)
                 return False
             source_type = "off_whitelist"
             source_name = domain
@@ -389,7 +403,8 @@ class Collector:
             source_type = source.type
             source_name = source.name
             if zone and not geo_filter_ok(source, country.code, title, text or "", zone.query_terms):
-                self._reject(f"fuente fuera de país sin mención de {country.code}")
+                self._reject(f"fuente fuera de país sin mención de {country.code}",
+                             title=title, url=link)
                 return False
             self.mark_source(source.domain, source.name, ok=True)
 
