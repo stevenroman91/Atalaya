@@ -5,12 +5,12 @@ re-run actualiza el evento existente en lugar de duplicarlo (§8).
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from atalaya.config import load_countries, zone_by_id
+from atalaya.config import load_countries, load_schedule, zone_by_id
 from atalaya.db.models import (
     Article, ArticleStatus, CollectRun, Event, EventArticle, EventStatus,
 )
@@ -43,10 +43,16 @@ def process_daily(db: Session, run: CollectRun, countries_filter: list[str] | No
     for code, country in countries.items():
         if not country.daily or (countries_filter and code not in countries_filter):
             continue
+        # Selección por ventana de frescura, NO por run_id: los artículos de
+        # un run interrumpido (o deduplicados en el run actual) siguen siendo
+        # procesables — el upsert por dedup_key garantiza la idempotencia.
+        sched = load_schedule()["daily"]
+        window = float(sched.get("window_hours", 24)) + float(sched.get("overlap_hours", 2))
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=window)
         articles = list(db.scalars(
             select(Article).where(
                 Article.country == code,
-                Article.run_id == run.id,
+                Article.published_at >= cutoff,
                 Article.status.in_([ArticleStatus.extracted.value, ArticleStatus.title_only.value]),
                 Article.theme.is_(None),   # los artículos temáticos son del flujo semanal
             )

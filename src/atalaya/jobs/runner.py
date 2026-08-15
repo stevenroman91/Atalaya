@@ -49,6 +49,13 @@ def run_daily(db: Session, countries: list[str] | None = None,
         log.info("job diario anulado por el administrador")
         stats["collect"] = collector.stats
         stats["cancelled"] = True
+        # procesar igualmente lo ya almacenado: una colecta parcial también
+        # debe producir alertas (mejor esfuerzo)
+        try:
+            stats["process"] = process_daily(db, run, countries)
+            stats["translate"] = translate_pending(db)
+        except Exception:
+            log.exception("procesado tras anulación falló")
         _finish(db, run, stats, ok=False)
     except Exception:
         log.exception("job diario falló")
