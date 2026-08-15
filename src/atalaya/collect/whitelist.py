@@ -133,3 +133,50 @@ def event_abroad(country: str, title: str) -> str | None:
         if _needle_re(place).search(title):
             return place
     return None
+
+
+def perimeter_country_for(place: str) -> str | None:
+    """Código del país vigilado que corresponde a un lugar, o None.
+
+    Un hecho en Venezuela publicado por la prensa nicaragüense no está fuera
+    del perímetro: está en otro país del perímetro. Reatribuirlo conserva la
+    información en vez de perderla — descartarlo sería tan falso como
+    contarlo en Nicaragua.
+    """
+    from atalaya.config import load_countries
+
+    for code, c in load_countries().items():
+        if c.name.lower() == place.lower():
+            return code
+    return None
+
+
+# ── secciones no pertinentes (§4) ────────────────────────────────────────
+# Los flujos generales de un diario mezclan deportes, opinión y espectáculos
+# con los sucesos. Nada de eso es un evento de seguridad, y la opinión es
+# además incompatible con el resumen extractivo: una columna no describe un
+# hecho, lo comenta. Se descarta por la ruta de la URL, que los medios
+# estructuran por sección de forma fiable.
+_OFF_TOPIC_SECTIONS = (
+    "opinion", "opinión", "editorial", "columna", "columnas", "columnistas",
+    "blog", "blogs", "analisis", "análisis", "cartas",
+    "deportes", "deporte", "futbol", "fútbol", "beisbol", "béisbol", "nba",
+    "espectaculos", "espectáculos", "farandula", "farándula", "gente",
+    "vida", "estilo", "moda", "gastronomia", "gastronomía", "viajes",
+    "cultura", "arte", "musica", "música", "cine", "series", "television",
+    "tecnologia", "tecnología", "ciencia", "salud", "bienestar",
+    "horoscopo", "horóscopo", "recetas", "mascotas", "motor", "autos",
+    "english",  # ediciones traducidas: duplican la portada en otro idioma
+)
+
+
+def off_topic_section(url: str) -> str | None:
+    """Sección de la URL que descarta el artículo, o None."""
+    try:
+        path = urlparse(url).path.lower()
+    except ValueError:
+        return None
+    for part in path.split("/"):
+        if part in _OFF_TOPIC_SECTIONS:
+            return part
+    return None

@@ -92,7 +92,8 @@ def process_daily(db: Session, run: CollectRun, countries_filter: list[str] | No
             rep = cluster.representative
             summary = build_summary(cluster)
             recommendations = (
-                build_recommendations(category, place)
+                build_recommendations(category, place,
+                                      f"{rep.title}\n{summary or ''}")
                 if etype == "ALERTA" and status == EventStatus.published.value else None
             )
             version = summary_version(rep.title, summary, recommendations)

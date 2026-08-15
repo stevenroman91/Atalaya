@@ -116,7 +116,41 @@ def summary_version(title: str, summary: str | None, recommendations: list[str] 
     return hashlib.sha256(payload.encode()).hexdigest()[:16]
 
 
-def build_recommendations(category: str, place: str) -> list[str]:
+# Tipo de incidente concreto: una recomendación útil dice cómo comportarse
+# ante ESE hecho. El orden importa — el primero que coincide gana, así que
+# los tipos más específicos van antes que los genéricos.
+_INCIDENT_PATTERNS: tuple[tuple[str, str], ...] = (
+    ("secuestro", r"secuestr\w*|plagio|priv\w+ de (la )?libertad|levant(ón|on)"),
+    ("extorsion", r"extorsi\w*|cobro de piso|derecho de piso|montadeud\w*"),
+    ("tiroteo", r"balacer\w*|tiroteo|ataque armado|disparos|r[aá]fag\w*"),
+    ("robo_violento", r"asalt\w*|atrac\w*|robo a mano armada|despoj\w+ violent\w*"),
+    ("homicidio", r"homicidi\w*|asesinat\w*|ejecuci[oó]n|cuerpo sin vida|masacre"),
+    ("bloqueo", r"bloque\w*|cierre de (la )?(v[ií]a|carretera)|tom\w+ de (la )?carretera"),
+    ("incendio", r"incendi\w*|conflagraci[oó]n"),
+    ("sismo", r"sismo|terremot\w*|temblor"),
+    ("inundacion", r"inundaci\w*|desbord\w*|crecid\w+ del r[ií]o"),
+)
+
+
+def detect_incident(text: str) -> str | None:
+    """Tipo de incidente reconocido en el texto, o None."""
+    if not text:
+        return None
+    low = text.lower()
+    for name, pattern in _INCIDENT_PATTERNS:
+        if re.search(pattern, low):
+            return name
+    return None
+
+
+def build_recommendations(category: str, place: str,
+                          text: str | None = None) -> list[str]:
+    """Recomendaciones del evento: por tipo de incidente si se reconoce, si
+    no por categoría. `text` es el título más el resumen."""
     with open(CONFIG_DIR / "recommendations.yaml", encoding="utf-8") as fh:
-        tpl = yaml.safe_load(fh)["recommendations"]
-    return [t.format(lugar=place) for t in tpl.get(category, [])][:3]
+        cfg = yaml.safe_load(fh)
+    incident = detect_incident(text or "")
+    tpl = cfg.get("incidents", {}).get(incident) if incident else None
+    if not tpl:
+        tpl = cfg["recommendations"].get(category, [])
+    return [t.format(lugar=place) for t in tpl][:3]

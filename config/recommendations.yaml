@@ -1,8 +1,50 @@
-# Plantillas de recomendaciones por categoría (solo ALERTA, 1–3 por evento).
+# Plantillas de recomendaciones (solo ALERTA, 1–3 por evento).
 # {lugar} es un sintagma completo («la zona de Roma Norte» o, sin zona
 # conocida, «la zona afectada»). Español canónico — las traducciones
 # fr/en/pt las genera la capa de traducción.
 # §7.7: las recomendaciones se muestran SIEMPRE separadas de los hechos.
+#
+# Se busca primero el tipo de incidente concreto (secuestro, extorsión…):
+# una recomendación útil dice cómo comportarse ante ESE hecho, no repite
+# «evitar la zona» para todo. Si no se identifica el tipo, se recurre a la
+# plantilla de la categoría, más genérica.
+
+# Por tipo de incidente — conducta a seguir. Prioritario.
+incidents:
+  secuestro:
+    - "Variar rutas y horarios de los desplazamientos habituales; evitar patrones previsibles."
+    - "Ante una retención: no oponer resistencia, no negociar por cuenta propia y avisar al oficial de seguridad en cuanto sea posible."
+    - "Mantener localización compartida con la delegación durante los desplazamientos por {lugar}."
+  extorsion:
+    - "No atender llamadas ni mensajes de números desconocidos que exijan pagos; no confirmar datos personales ni de la delegación."
+    - "Ante una amenaza de cobro: no pagar, conservar el registro de la comunicación y reportar al oficial de seguridad."
+    - "Verificar por vía independiente cualquier supuesta emergencia familiar invocada por el interlocutor."
+  robo_violento:
+    - "Ante un asalto: entregar los objetos sin resistencia; la integridad física prevalece sobre cualquier bien."
+    - "Limitar el efectivo y los objetos visibles de valor en los desplazamientos por {lugar}."
+    - "Evitar el uso del teléfono en la vía pública y en paradas de transporte en la zona."
+  tiroteo:
+    - "Ante disparos: tirarse al suelo y protegerse tras un muro o motor de vehículo; no correr en campo abierto ni asomarse a ventanas."
+    - "Una vez a cubierto, permanecer en el lugar hasta que cese el fuego y lo indiquen las autoridades; después alejarse de la zona."
+    - "Reportar la ubicación al oficial de seguridad en cuanto sea seguro hacerlo."
+  homicidio:
+    - "Evitar {lugar} mientras dure el despliegue policial y la zona permanezca acordonada."
+    - "No difundir imágenes ni ubicaciones del hecho en redes; puede exponer a quien las publica."
+  bloqueo:
+    - "Consultar el estado de las vías antes de salir; prever itinerarios alternativos a {lugar}."
+    - "Ante un bloqueo en ruta: no forzar el paso, no discutir con los manifestantes y retroceder por donde se llegó."
+  incendio:
+    - "Alejarse en dirección contraria al humo y por encima del nivel del fuego si hay desnivel."
+    - "Seguir las consignas de evacuación de las autoridades locales para {lugar}."
+  sismo:
+    - "Durante el sismo: protegerse bajo una estructura resistente, alejado de ventanas; no usar ascensores."
+    - "Tras el sismo: revisar fugas de gas antes de encender luces y esperar réplicas antes de reingresar a un edificio."
+    - "Confirmar el estado del personal con el oficial de seguridad."
+  inundacion:
+    - "No cruzar corrientes de agua a pie ni en vehículo, aunque parezcan poco profundas."
+    - "Desplazarse a zonas altas y seguir las consignas de protección civil para {lugar}."
+
+# Por categoría — se aplica cuando no se identifica el tipo de incidente.
 recommendations:
   crimen_alto_impacto:
     - "Evitar {lugar} y sus alrededores hasta nuevo aviso."

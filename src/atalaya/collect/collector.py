@@ -27,7 +27,8 @@ from sqlalchemy.orm import Session
 from atalaya.collect.extract import extract_article, text_from_feed_html, _parse_dt
 from atalaya.collect.fetcher import PoliteFetcher
 from atalaya.collect.whitelist import (
-    event_abroad, geo_filter_ok, looks_like_content_farm, match_source, norm_domain,
+    event_abroad, geo_filter_ok, looks_like_content_farm, match_source,
+    norm_domain, off_topic_section, perimeter_country_for,
 )
 from atalaya.config import Country, Zone, load_countries, load_keywords, load_schedule, load_sources
 from atalaya.db.models import Article, ArticleStatus, CollectRun, SourceRecord, utcnow
@@ -288,13 +289,28 @@ class Collector:
             self._reject("entrada sin enlace o título")
             return False
 
+        # Secciones ajenas a la seguridad (deportes, opinión, espectáculos):
+        # la opinión además no es resumible de forma extractiva — una columna
+        # comenta un hecho, no lo describe.
+        section = off_topic_section(link)
+        if section:
+            self._reject(f"sección ajena a la vigilancia: {section}")
+            return False
+
         # §4 — el hecho debe ocurrir en el perímetro. La prensa nacional cubre
         # a diario sucesos del extranjero; se descartan antes de gastar una
-        # petición en el texto íntegro.
+        # petición en el texto íntegro. Si el lugar es otro país vigilado, el
+        # artículo se reatribuye a ese país en vez de perderse.
         abroad = event_abroad(country.code, title)
         if abroad:
-            self._reject(f"hecho localizado fuera del perímetro: {abroad}")
-            return False
+            other = perimeter_country_for(abroad)
+            if other and other in load_countries():
+                country = load_countries()[other]
+                zone = None  # la zona del feed de origen ya no aplica
+                self.stats["reattributed"] = self.stats.get("reattributed", 0) + 1
+            else:
+                self._reject(f"hecho localizado fuera del perímetro: {abroad}")
+                return False
 
         # Fecha del flujo: primer filtro de frescura (la fecha real del
         # artículo se re-verifica tras la extracción, §7.4)
