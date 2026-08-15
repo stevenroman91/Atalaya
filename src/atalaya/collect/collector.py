@@ -84,11 +84,19 @@ class Collector:
 
     def _source_record(self, domain: str, name: str) -> SourceRecord:
         rec = self.db.scalar(select(SourceRecord).where(SourceRecord.domain == domain))
-        if not rec:
-            rec = SourceRecord(domain=domain, name=name)
-            self.db.add(rec)
-            self.db.flush()
-        return rec
+        if rec:
+            return rec
+        try:
+            # savepoint: dos hilos pueden crear la misma fuente a la vez
+            # (p. ej. El Universal marcado por dos zonas de CDMX); el UNIQUE
+            # de domain convierte al segundo en un re-select, sin romper el run
+            with self.db.begin_nested():
+                rec = SourceRecord(domain=domain, name=name)
+                self.db.add(rec)
+                self.db.flush()
+            return rec
+        except IntegrityError:
+            return self.db.scalar(select(SourceRecord).where(SourceRecord.domain == domain))
 
     def mark_source(self, domain: str, name: str, ok: bool, error: str | None = None) -> None:
         rec = self._source_record(domain, name)
@@ -100,7 +108,23 @@ class Collector:
             rec.consecutive_failures += 1
             rec.last_error = (error or "")[:500]
 
-    # ── descubrimiento RSS (nunca URLs inventadas) ───────────────────────
+    # ── descubrimiento RSS (solo URLs verificadas, nunca inventadas) ─────
+    # Rutas convencionales de feeds. Solo se persisten si la respuesta se
+    # parsea como RSS/Atom válido con entradas — probar y verificar no es
+    # inventar: nada entra en base sin haber servido un feed real.
+    _COMMON_FEED_PATHS = ("/feed", "/rss", "/rss.xml", "/feed.xml",
+                          "/arc/outboundfeeds/rss/")
+
+    def _probe_feed(self, domain: str, path: str) -> str | None:
+        url = f"https://{domain}{path}"
+        resp = self.fetcher.get(url)
+        if not resp:
+            return None
+        parsed = feedparser.parse(resp.content)
+        if parsed.version and parsed.entries:
+            return url
+        return None
+
     def discover_rss(self, source) -> str | None:
         if source.rss:
             return source.rss
@@ -109,21 +133,29 @@ class Collector:
             return rec.discovered_rss
         base = source.section_url or f"https://{source.domain}/"
         resp = self.fetcher.get(base)
+        if resp:
+            m = re.search(
+                r'<link[^>]+type=["\']application/(?:rss|atom)\+xml["\'][^>]*href=["\']([^"\']+)["\']',
+                resp.text, re.I) or re.search(
+                r'<link[^>]+href=["\']([^"\']+)["\'][^>]*type=["\']application/(?:rss|atom)\+xml["\']',
+                resp.text, re.I)
+            if m:
+                href = m.group(1)
+                if href.startswith("/"):
+                    href = f"https://{source.domain}{href}"
+                rec.discovered_rss = href
+                log.info("RSS autodescubierto para %s: %s", source.domain, href)
+                return href
+        # home inalcanzable (anti-bot) o sin <link>: sondear rutas comunes
+        for path in self._COMMON_FEED_PATHS:
+            found = self._probe_feed(source.domain, path)
+            if found:
+                rec.discovered_rss = found
+                self.mark_source(source.domain, source.name, ok=True)
+                log.info("RSS verificado por sondeo para %s: %s", source.domain, found)
+                return found
         if not resp:
             self.mark_source(source.domain, source.name, ok=False, error="home inalcanzable")
-            return None
-        m = re.search(
-            r'<link[^>]+type=["\']application/(?:rss|atom)\+xml["\'][^>]*href=["\']([^"\']+)["\']',
-            resp.text, re.I) or re.search(
-            r'<link[^>]+href=["\']([^"\']+)["\'][^>]*type=["\']application/(?:rss|atom)\+xml["\']',
-            resp.text, re.I)
-        if m:
-            href = m.group(1)
-            if href.startswith("/"):
-                href = f"https://{source.domain}{href}"
-            rec.discovered_rss = href
-            log.info("RSS autodescubierto para %s: %s", source.domain, href)
-            return href
         return None
 
     # ── ingesta de un feed ───────────────────────────────────────────────
@@ -365,7 +397,15 @@ class Collector:
 
         if not self.session_factory or workers <= 1 or len(items) <= 1:
             for item in items:
-                work(self, run, item)
+                try:
+                    work(self, run, item)
+                except RunCancelled:
+                    raise
+                except Exception:
+                    # una tarea que falla no debe matar el run completo
+                    log.exception("tarea de colecta falló (%r)", item)
+                    self.db.rollback()
+                    self.stats["task_errors"] = self.stats.get("task_errors", 0) + 1
                 _tick(self.db)
             return
 
@@ -377,11 +417,15 @@ class Collector:
                 try:
                     work(worker, wrun, item)
                     session.commit()
-                    _tick(session)
-                    return worker.stats, False
                 except RunCancelled:
                     session.commit()  # conserva lo ya almacenado
                     return worker.stats, True
+                except Exception:
+                    log.exception("tarea de colecta falló (%r)", item)
+                    session.rollback()
+                    worker.stats["task_errors"] = worker.stats.get("task_errors", 0) + 1
+                _tick(session)
+                return worker.stats, False
             finally:
                 session.close()
 

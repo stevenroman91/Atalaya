@@ -57,8 +57,10 @@ def run_daily(db: Session, countries: list[str] | None = None,
         except Exception:
             log.exception("procesado tras anulación falló")
         _finish(db, run, stats, ok=False)
-    except Exception:
+    except Exception as exc:
         log.exception("job diario falló")
+        db.rollback()
+        stats["error"] = f"{type(exc).__name__}: {exc}"[:300]  # visible en admin («Runs»)
         _finish(db, run, stats, ok=False)
         raise
     return run
@@ -81,8 +83,10 @@ def run_weekly(db: Session, countries: list[str] | None = None,
         stats["collect"] = collector.stats
         stats["cancelled"] = True
         _finish(db, run, stats, ok=False)
-    except Exception:
+    except Exception as exc:
         log.exception("job semanal falló")
+        db.rollback()
+        stats["error"] = f"{type(exc).__name__}: {exc}"[:300]
         _finish(db, run, stats, ok=False)
         raise
     return run

@@ -34,7 +34,11 @@ class PoliteFetcher:
         # En tests, todas las peticiones se reescriben hacia el servidor de fixtures.
         self.base_url_override = base_url_override
         self.client = httpx.Client(
-            headers={"User-Agent": self.user_agent},
+            headers={
+                "User-Agent": self.user_agent,  # identificable (§9), sin disfraz
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "es-419,es;q=0.9,pt-BR;q=0.8,en;q=0.5",
+            },
             timeout=self.timeout,
             follow_redirects=True,
         )
