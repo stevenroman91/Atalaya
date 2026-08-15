@@ -365,6 +365,9 @@ legend { font-size: .85rem; font-weight: 600; color: var(--text-2); padding: 0 .
 
 .exportrow { display: flex; gap: .6rem; flex-wrap: wrap; }
 
+.panel.coverage { border-left: 3px solid var(--warn); }
+.coverage-list { font-size: .8rem; color: var(--text-2); margin: 0; }
+
 /* ---------- tablas ---------- */
 .tablewrap { overflow-x: auto; }
 table { border-collapse: collapse; width: 100%; font-size: .86rem; }

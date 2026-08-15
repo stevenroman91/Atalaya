@@ -56,5 +56,7 @@
   "admin_collect_cancelling": "Cancellation requested — collection will stop within a few seconds, keeping what was already stored.",
   "admin_progress_tasks": "tasks (zones) completed",
   "admin_progress_articles": "articles stored",
-  "admin_progress_refresh": "this page auto-refreshes every 10 s"
+  "admin_progress_refresh": "this page auto-refreshes every 10 s",
+  "coverage_title": "Sources not consulted",
+  "coverage_hint": "These sources' direct feeds did not respond during the last collection. Their content may still arrive via Google News, but direct coverage is degraded."
 }

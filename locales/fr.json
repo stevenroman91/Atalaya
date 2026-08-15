@@ -56,5 +56,7 @@
   "admin_collect_cancelling": "Annulation demandée — la collecte s'arrêtera d'ici quelques secondes en conservant ce qui a déjà été stocké.",
   "admin_progress_tasks": "tâches (zones) terminées",
   "admin_progress_articles": "articles stockés",
-  "admin_progress_refresh": "cette page se rafraîchit toute seule toutes les 10 s"
+  "admin_progress_refresh": "cette page se rafraîchit toute seule toutes les 10 s",
+  "coverage_title": "Sources non consultées",
+  "coverage_hint": "Le flux direct de ces sources n'a pas répondu lors de la dernière collecte. Leur contenu peut arriver via Google News, mais la couverture directe est dégradée."
 }

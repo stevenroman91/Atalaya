@@ -122,6 +122,13 @@
         <span><span class="dot notes"></span>{{ t('notes_label') }}</span>
       </div>
     </div>
+    {% if unreachable_sources %}
+    <div class="panel coverage">
+      <h4>⚠ {{ t('coverage_title') }}</h4>
+      <p class="section-hint">{{ t('coverage_hint') }}</p>
+      <p class="coverage-list">{{ unreachable_sources | join(' · ') }}</p>
+    </div>
+    {% endif %}
     <div class="panel exportrow">
       <a class="button" href="/dashboard/briefing?format=pdf">{{ t('export_pdf') }} (PDF)</a>
       <a class="button secondary" href="/dashboard/briefing" target="_blank">HTML</a>

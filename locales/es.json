@@ -56,5 +56,7 @@
   "admin_collect_cancelling": "Anulación solicitada — la colecta se detendrá en unos segundos y conservará lo ya almacenado.",
   "admin_progress_tasks": "tareas (zonas) completadas",
   "admin_progress_articles": "artículos almacenados",
-  "admin_progress_refresh": "esta página se actualiza sola cada 10 s"
+  "admin_progress_refresh": "esta página se actualiza sola cada 10 s",
+  "coverage_title": "Fuentes no consultadas",
+  "coverage_hint": "El flujo directo de estas fuentes no respondió en la última colecta. Su contenido puede llegar igualmente vía Google News, pero la cobertura directa está degradada."
 }
