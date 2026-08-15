@@ -29,8 +29,16 @@ _CASUALTY = re.compile(
     r"víctimas|vítimas|mort[oa]s?|ferid[oa]s?)\b", re.I)
 
 
+_NOISE_PREFIX = re.compile(r"^\[[^\]]{1,40}\]\s*")   # «[Publicidad]», «[Video]»…
+
+
 def split_sentences(text: str) -> list[str]:
-    return [s.strip() for s in _SENT_SPLIT.split(text or "") if len(s.strip()) > 25]
+    out = []
+    for s in _SENT_SPLIT.split(text or ""):
+        s = _NOISE_PREFIX.sub("", s.strip())
+        if len(s) > 25:
+            out.append(s)
+    return out
 
 
 def _score_sentence(sent: str, entities: set[str]) -> int:

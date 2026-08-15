@@ -66,8 +66,8 @@ def dashboard(request: Request,
     for e in events:
         e["is_new"] = bool(last_seen is None or (e["created_at"] and e["created_at"] > last_seen))
 
-    stats = counters(db, user)
-    tl = timeline(db, user)
+    stats = counters(db, f)
+    tl = timeline(db, f)
     user.last_seen_at = utcnow()      # marcador «nuevo» por cuenta
     db.commit()
 

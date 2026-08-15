@@ -79,7 +79,9 @@ def process_daily(db: Session, run: CollectRun, countries_filter: list[str] | No
 
             zone_id = _cluster_zone(cluster)
             zone = zones.get(zone_id) if zone_id else None
-            place = zone.name if zone else country.name
+            # {lugar} de las recomendaciones: sintagma completo. Sin zona
+            # conocida, genérico — nunca «la zona de México» (país entero).
+            place = f"la zona de {zone.name}" if zone else "la zona afectada"
             geo = zone.geo if zone and zone.geo else None
 
             rep = cluster.representative

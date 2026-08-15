@@ -32,27 +32,34 @@ def default_filters_for(user: User) -> EventFilters:
     return EventFilters(countries=list(user.countries or []))
 
 
+def _dim_conditions(f: EventFilters) -> list:
+    """Condiciones de dimensión (país/zona/categoría/nivel/tipo/texto),
+    compartidas entre la lista de eventos y los contadores de cabecera."""
+    conds = []
+    if f.countries:
+        conds.append(Event.country.in_(f.countries))
+    if f.zone:
+        conds.append(Event.zone_id == f.zone)
+    if f.category:
+        conds.append(Event.category == f.category)
+    if f.level:
+        conds.append(Event.level == f.level)
+    if f.event_type:
+        conds.append(Event.event_type == f.event_type)
+    if f.q:
+        needle = f"%{f.q}%"
+        conds.append(or_(Event.title_es.ilike(needle), Event.summary_es.ilike(needle)))
+    return conds
+
+
 def query_events(db: Session, f: EventFilters, limit: int = 200) -> list[Event]:
     stmt = select(Event).options(
         selectinload(Event.articles), selectinload(Event.translations)
-    ).where(Event.status.in_(f.statuses))
-    if f.countries:
-        stmt = stmt.where(Event.country.in_(f.countries))
-    if f.zone:
-        stmt = stmt.where(Event.zone_id == f.zone)
-    if f.category:
-        stmt = stmt.where(Event.category == f.category)
-    if f.level:
-        stmt = stmt.where(Event.level == f.level)
-    if f.event_type:
-        stmt = stmt.where(Event.event_type == f.event_type)
+    ).where(Event.status.in_(f.statuses), *_dim_conditions(f))
     if f.date_from:
         stmt = stmt.where(Event.occurred_at >= f.date_from)
     if f.date_to:
         stmt = stmt.where(Event.occurred_at < f.date_to + timedelta(days=1))
-    if f.q:
-        needle = f"%{f.q}%"
-        stmt = stmt.where(or_(Event.title_es.ilike(needle), Event.summary_es.ilike(needle)))
     # gravedad primero (ALERTA antes que NOTA, advertencia antes que informativo), luego récence
     stmt = stmt.order_by(
         Event.event_type.asc(),      # ALERTA < NOTA alfabéticamente
@@ -109,19 +116,18 @@ def localize_event(event: Event, lang: str, user_tz: str) -> dict:
     }
 
 
-def counters(db: Session, user: User) -> dict:
-    """Compteurs de tête: alertes/notes du jour par pays suivi + à confirmer."""
+def counters(db: Session, f: EventFilters) -> dict:
+    """Compteurs de tête: alertes/notes du jour + à confirmer, sur le MÊME
+    périmètre que les filtres actifs (« hoy » = créés dans les 24 h)."""
     since = datetime.now(timezone.utc) - timedelta(hours=24)
-    events = db.scalars(select(Event).where(Event.created_at >= since))
+    events = db.scalars(select(Event).where(Event.created_at >= since,
+                                            *_dim_conditions(f)))
     out = {"alerts": 0, "notes": 0, "pending": 0, "by_country": {}}
-    followed = set(user.countries or [])
     for ev in events:
         if ev.status == EventStatus.pending_confirm.value:
             out["pending"] += 1
             continue
         if ev.status != EventStatus.published.value:
-            continue
-        if followed and ev.country not in followed:
             continue
         key = "alerts" if ev.event_type == "ALERTA" else "notes"
         out[key] += 1
@@ -130,12 +136,11 @@ def counters(db: Session, user: User) -> dict:
     return out
 
 
-def timeline(db: Session, user: User, days: int = 7) -> list[dict]:
+def timeline(db: Session, f: EventFilters, days: int = 7) -> list[dict]:
     since = datetime.now(timezone.utc) - timedelta(days=days)
     stmt = select(Event).where(Event.status == EventStatus.published.value,
-                               Event.occurred_at >= since)
-    if user.countries:
-        stmt = stmt.where(Event.country.in_(user.countries))
+                               Event.occurred_at >= since,
+                               *_dim_conditions(f))
     buckets: dict[str, dict] = {}
     for i in range(days, -1, -1):
         day = (datetime.now(timezone.utc) - timedelta(days=i)).date().isoformat()
