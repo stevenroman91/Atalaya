@@ -1,7 +1,9 @@
 """Aplicación web de Atalaya (FastAPI)."""
 from __future__ import annotations
 
+import logging
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -11,7 +13,41 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from atalaya.web.routes import account, admin_routes, auth_routes, dashboard, weekly_monthly
 
-app = FastAPI(title="Atalaya", docs_url=None, redoc_url=None, openapi_url=None)
+log = logging.getLogger(__name__)
+
+
+def _mark_interrupted_manual_runs() -> None:
+    """Las colectas manuales corren en un hilo de ESTE proceso: si el proceso
+    murió (redeploy, crash), su run queda huérfano con finished_at NULL y el
+    botón de admin aparecería bloqueado. Al arrancar se marcan como
+    interrumpidas. Los runs de cron viven en otros contenedores y no se tocan.
+    """
+    from sqlalchemy import select
+
+    from atalaya.db import SessionLocal
+    from atalaya.db.models import CollectRun, utcnow
+    try:
+        with SessionLocal() as db:
+            orphans = db.scalars(
+                select(CollectRun).where(CollectRun.finished_at.is_(None))).all()
+            for run in orphans:
+                if (run.stats or {}).get("origin") == "manual":
+                    run.finished_at = utcnow()
+                    run.ok = False
+                    run.stats = {**(run.stats or {}), "interrupted": True}
+            db.commit()
+    except Exception:  # p. ej. base aún sin migrar — no impedir el arranque
+        log.warning("no se pudieron limpiar runs manuales huérfanos", exc_info=True)
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    _mark_interrupted_manual_runs()
+    yield
+
+
+app = FastAPI(title="Atalaya", docs_url=None, redoc_url=None, openapi_url=None,
+              lifespan=_lifespan)
 
 _CSP = (
     "default-src 'self'; "

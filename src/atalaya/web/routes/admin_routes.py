@@ -58,7 +58,7 @@ def _collect_in_background(kind: str) -> None:
     def worker():
         try:
             with SessionLocal() as job_db:
-                (run_daily if kind == "daily" else run_weekly)(job_db)
+                (run_daily if kind == "daily" else run_weekly)(job_db, origin="manual")
         except Exception:
             log.exception("colecta %s lanzada desde admin falló", kind)
 

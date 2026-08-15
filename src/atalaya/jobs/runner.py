@@ -34,11 +34,11 @@ def _finish(db: Session, run: CollectRun, stats: dict, ok: bool = True) -> None:
 
 
 def run_daily(db: Session, countries: list[str] | None = None,
-              fetcher: PoliteFetcher | None = None) -> CollectRun:
-    run = CollectRun(kind="daily")
+              fetcher: PoliteFetcher | None = None, origin: str = "cron") -> CollectRun:
+    run = CollectRun(kind="daily", stats={"origin": origin})
     db.add(run)
     db.commit()
-    stats: dict = {}
+    stats: dict = {"origin": origin}
     collector = Collector(db, fetcher, session_factory=_session_factory())
     try:
         stats["collect"] = collector.collect_daily(run, countries)
@@ -58,12 +58,12 @@ def run_daily(db: Session, countries: list[str] | None = None,
 
 
 def run_weekly(db: Session, countries: list[str] | None = None,
-               fetcher: PoliteFetcher | None = None) -> CollectRun:
+               fetcher: PoliteFetcher | None = None, origin: str = "cron") -> CollectRun:
     from atalaya.jobs.weekly import process_weekly
-    run = CollectRun(kind="weekly")
+    run = CollectRun(kind="weekly", stats={"origin": origin})
     db.add(run)
     db.commit()
-    stats: dict = {}
+    stats: dict = {"origin": origin}
     collector = Collector(db, fetcher, session_factory=_session_factory())
     try:
         stats["collect"] = collector.collect_weekly(run, countries)

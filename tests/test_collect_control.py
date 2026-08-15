@@ -68,3 +68,22 @@ def test_sequential_fallback_without_factory(db, fixture_base):
     collector._run_countries(run, list(load_countries().values())[:2],
                              lambda col, r, c: seen.append((col is collector, c.code)))
     assert all(same for same, _ in seen) and len(seen) == 2
+
+
+def test_startup_marks_orphan_manual_runs(db):
+    from atalaya.web.app import _mark_interrupted_manual_runs
+
+    manual = CollectRun(kind="daily", stats={"origin": "manual"})
+    cron = CollectRun(kind="daily", stats={"origin": "cron"})
+    db.add_all([manual, cron])
+    db.commit()
+    manual_id, cron_id = manual.id, cron.id
+    db.expunge_all()
+
+    _mark_interrupted_manual_runs()
+
+    manual = db.get(CollectRun, manual_id)
+    cron = db.get(CollectRun, cron_id)
+    assert manual.finished_at is not None and manual.ok is False
+    assert manual.stats.get("interrupted") is True
+    assert cron.finished_at is None and cron.ok is None

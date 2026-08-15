@@ -141,6 +141,9 @@ class Collector:
         cfg = load_schedule().get("collector", {})
         limit = max_entries or int(cfg.get("max_articles_per_feed", 50))
         for entry in parsed.entries[:limit]:
+            # cada entrada implica varias peticiones HTTP (redirección GN,
+            # texto íntegro): comprobar la anulación aquí, no solo por feed
+            self._check_cancel(run)
             self.stats["entries"] += 1
             if self._ingest_entry(entry, run=run, country=country, zone=zone,
                                   keyword=keyword, theme=theme, cutoff=cutoff,
