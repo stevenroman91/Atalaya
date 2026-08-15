@@ -30,7 +30,8 @@ sources:
   - { name: "El Economista",      domain: "eleconomista.com.mx", origin: MX, covers: ["*"], lang: es, type: internacional, rss: null }
   - { name: "LatinUS",            domain: "latinus.us",          origin: US, covers: ["*"], lang: es, type: internacional, rss: null }
   - { name: "Prensa Latina",      domain: "prensa-latina.cu",    origin: CU, covers: ["*"], lang: es, type: estatal, rss: null }
-  - { name: "teleSUR",            domain: "telesurtv.net",       origin: VE, covers: ["*"], lang: es, type: estatal, rss: null }
+  - { name: "teleSUR",            domain: "telesurtv.net",       origin: VE, covers: ["*"], lang: es, type: estatal,
+      rss: "https://www.telesurtv.net/feed/" }
 
   # ── México ────────────────────────────────────────────────────────────────
   - { name: "El Universal",       domain: "eluniversal.com.mx",  origin: MX, covers: [MX], lang: es, type: independiente, rss: null }
