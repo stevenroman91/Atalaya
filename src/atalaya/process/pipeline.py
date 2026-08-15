@@ -83,6 +83,11 @@ def process_daily(db: Session, run: CollectRun, countries_filter: list[str] | No
             # conocida, genérico — nunca «la zona de México» (país entero).
             place = f"la zona de {zone.name}" if zone else "la zona afectada"
             geo = zone.geo if zone and zone.geo else None
+            if geo is None:
+                # sin zona precisa: marcador a nivel país (primera zona con
+                # geo — p. ej. mx-nacional / la capital) para que el evento
+                # aparezca igualmente en el mapa
+                geo = next((z.geo for z in country.zones if z.geo), None)
 
             rep = cluster.representative
             summary = build_summary(cluster)
@@ -107,6 +112,9 @@ def process_daily(db: Session, run: CollectRun, countries_filter: list[str] | No
                 existing.recommendations_es = recommendations
                 existing.summary_version = version
                 existing.score_detail = result.reasons
+                if existing.lat is None and geo:   # eventos antiguos sin coordenadas
+                    existing.lat, existing.lon = geo
+                    existing.zone_id = existing.zone_id or zone_id
                 event = existing
                 stats["updated"] += 1
             else:
