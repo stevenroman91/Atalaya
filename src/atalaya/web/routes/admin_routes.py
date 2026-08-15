@@ -11,8 +11,10 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
+from sqlalchemy import func
+
 from atalaya.config import load_schedule
-from atalaya.db.models import CollectRun, Invitation, SourceRecord, User
+from atalaya.db.models import Article, CollectRun, Invitation, SourceRecord, User
 from atalaya.web import auth as auth_layer
 from atalaya.web.deps import check_csrf, get_db, render, require_admin
 
@@ -33,11 +35,19 @@ def admin_home(request: Request, invite_link: str | None = None, error: str | No
     sources = list(db.scalars(select(SourceRecord).order_by(
         desc(SourceRecord.consecutive_failures), SourceRecord.domain)))
     runs = list(db.scalars(select(CollectRun).order_by(desc(CollectRun.started_at)).limit(20)))
-    collect_running = db.scalar(_active_run_query()) is not None
+    active_run = db.scalar(_active_run_query())
+    progress = None
+    if active_run is not None:
+        stored = db.scalar(select(func.count(Article.id))
+                           .where(Article.run_id == active_run.id)) or 0
+        progress = {"done": active_run.progress_done,
+                    "total": active_run.progress_total,
+                    "stored": stored, "run_id": active_run.id}
     return render(request, "admin.html", user=user, csrf=sess.csrf_token,
                   invitations=invitations, users=users, sources=sources,
                   runs=runs, invite_link=invite_link, error=error, notice=notice,
-                  collect_running=collect_running, failing_threshold=alert_days)
+                  collect_running=active_run is not None, progress=progress,
+                  failing_threshold=alert_days)
 
 
 def _active_run_query():

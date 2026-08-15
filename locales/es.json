@@ -53,5 +53,8 @@
   "admin_collect_running": "Ya hay una colecta en curso — espera a que termine.",
   "admin_collect_hint": "La colecta diaria se ejecuta automáticamente por cron. Este botón la lanza manualmente (primer llenado o pruebas).",
   "admin_cancel_collect": "Anular colecta",
-  "admin_collect_cancelling": "Anulación solicitada — la colecta se detendrá en unos segundos y conservará lo ya almacenado."
+  "admin_collect_cancelling": "Anulación solicitada — la colecta se detendrá en unos segundos y conservará lo ya almacenado.",
+  "admin_progress_tasks": "tareas (zonas) completadas",
+  "admin_progress_articles": "artículos almacenados",
+  "admin_progress_refresh": "esta página se actualiza sola cada 10 s"
 }

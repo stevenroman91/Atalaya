@@ -20,7 +20,7 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import quote_plus
 
 import feedparser
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -352,9 +352,21 @@ class Collector:
         más carga que en modo secuencial.
         """
         workers = int(load_schedule().get("collector", {}).get("parallel_workers", 4))
+
+        # progreso visible en admin: nº total de tareas + incremento atómico
+        run.progress_total = len(items)
+        run.progress_done = 0
+        self.db.commit()
+
+        def _tick(session: Session) -> None:
+            session.execute(update(CollectRun).where(CollectRun.id == run.id)
+                            .values(progress_done=CollectRun.progress_done + 1))
+            session.commit()
+
         if not self.session_factory or workers <= 1 or len(items) <= 1:
             for item in items:
                 work(self, run, item)
+                _tick(self.db)
             return
 
         def per_item(item) -> tuple[dict, bool]:
@@ -365,6 +377,7 @@ class Collector:
                 try:
                     work(worker, wrun, item)
                     session.commit()
+                    _tick(session)
                     return worker.stats, False
                 except RunCancelled:
                     session.commit()  # conserva lo ya almacenado

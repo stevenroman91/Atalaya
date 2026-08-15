@@ -391,6 +391,18 @@ tr.failing td { color: var(--alert-text); }
 }
 .invitelink code { flex: 1; min-width: 200px; }
 
+/* ---------- barre de progression de colecte ---------- */
+.progresswrap { margin-bottom: 1rem; }
+.progressbar {
+  height: 8px; border-radius: 99px; overflow: hidden;
+  background: var(--panel-2); border: 1px solid var(--border);
+}
+.progressfill {
+  height: 100%; border-radius: 99px;
+  background: var(--accent);
+  transition: width .4s ease;
+}
+
 /* ---------- semanal / mensual ---------- */
 .selectors { display: flex; gap: .6rem; margin-bottom: 1.1rem; flex-wrap: wrap; align-items: center; }
 .selectors select, .selectors input { font-size: .9rem; }

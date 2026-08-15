@@ -53,5 +53,8 @@
   "admin_collect_running": "Já há uma coleta em andamento — aguarde a conclusão.",
   "admin_collect_hint": "A coleta diária é executada automaticamente via cron. Este botão a dispara manualmente (primeiro preenchimento ou testes).",
   "admin_cancel_collect": "Cancelar coleta",
-  "admin_collect_cancelling": "Cancelamento solicitado — a coleta será interrompida em alguns segundos, mantendo o que já foi armazenado."
+  "admin_collect_cancelling": "Cancelamento solicitado — a coleta será interrompida em alguns segundos, mantendo o que já foi armazenado.",
+  "admin_progress_tasks": "tarefas (zonas) concluídas",
+  "admin_progress_articles": "artigos armazenados",
+  "admin_progress_refresh": "esta página se atualiza sozinha a cada 10 s"
 }

@@ -1,4 +1,7 @@
 {% extends "base.html" %}
+{% block head %}
+{% if collect_running %}<meta http-equiv="refresh" content="10">{% endif %}
+{% endblock %}
 {% block content %}
 <h2>{{ t('admin') }}</h2>
 {% if error %}<p class="error">{{ error }}</p>{% endif %}
@@ -71,7 +74,7 @@
     <form method="post" action="/admin/collect-now" class="inline">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <button type="submit" class="primary" {{ 'disabled' if collect_running }}>
-        {{ t('admin_collect_in_progress') if collect_running else t('admin_run_collect') }}
+        {% if collect_running %}{{ t('admin_collect_in_progress') }}{% if progress and progress.total %} {{ progress.done }}/{{ progress.total }}{% endif %}{% else %}{{ t('admin_run_collect') }}{% endif %}
       </button>
     </form>
     {% if collect_running %}
@@ -81,6 +84,16 @@
     </form>
     {% endif %}
   </div>
+  {% if progress %}
+  <div class="progresswrap">
+    {% set pct = (progress.done / progress.total * 100) | round(0) | int if progress.total else 0 %}
+    <div class="progressbar"><div class="progressfill" style="width: {{ pct }}%"></div></div>
+    <p class="section-hint" style="margin-top:.4rem">
+      {{ progress.done }}/{{ progress.total }} {{ t('admin_progress_tasks') }} ·
+      {{ progress.stored }} {{ t('admin_progress_articles') }} — {{ t('admin_progress_refresh') }}
+    </p>
+  </div>
+  {% endif %}
   <div class="tablewrap"><table>
     <thead><tr><th>{{ t('admin_source') }}</th><th>{{ t('admin_last_ok') }}</th><th>{{ t('admin_failures') }}</th><th>RSS</th></tr></thead>
     <tbody>

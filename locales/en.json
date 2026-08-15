@@ -53,5 +53,8 @@
   "admin_collect_running": "A collection is already running — wait for it to finish.",
   "admin_collect_hint": "The daily collection runs automatically via cron. This button triggers it manually (initial fill or testing).",
   "admin_cancel_collect": "Cancel collection",
-  "admin_collect_cancelling": "Cancellation requested — collection will stop within a few seconds, keeping what was already stored."
+  "admin_collect_cancelling": "Cancellation requested — collection will stop within a few seconds, keeping what was already stored.",
+  "admin_progress_tasks": "tasks (zones) completed",
+  "admin_progress_articles": "articles stored",
+  "admin_progress_refresh": "this page auto-refreshes every 10 s"
 }

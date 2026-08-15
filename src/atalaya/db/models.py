@@ -38,6 +38,8 @@ class CollectRun(Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     ok: Mapped[bool | None] = mapped_column(Boolean)
     cancel_requested: Mapped[bool] = mapped_column(Boolean, default=False)  # anulación cooperativa desde admin
+    progress_total: Mapped[int] = mapped_column(Integer, default=0)  # nº de tareas (zonas/países) del run
+    progress_done: Mapped[int] = mapped_column(Integer, default=0)   # tareas completadas (incremento atómico)
     stats: Mapped[dict] = mapped_column(JSON, default=dict)
 
 

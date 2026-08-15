@@ -53,5 +53,8 @@
   "admin_collect_running": "Une collecte est déjà en cours — attendez qu'elle se termine.",
   "admin_collect_hint": "La collecte quotidienne s'exécute automatiquement par cron. Ce bouton la lance manuellement (premier remplissage ou tests).",
   "admin_cancel_collect": "Annuler la collecte",
-  "admin_collect_cancelling": "Annulation demandée — la collecte s'arrêtera d'ici quelques secondes en conservant ce qui a déjà été stocké."
+  "admin_collect_cancelling": "Annulation demandée — la collecte s'arrêtera d'ici quelques secondes en conservant ce qui a déjà été stocké.",
+  "admin_progress_tasks": "tâches (zones) terminées",
+  "admin_progress_articles": "articles stockés",
+  "admin_progress_refresh": "cette page se rafraîchit toute seule toutes les 10 s"
 }
