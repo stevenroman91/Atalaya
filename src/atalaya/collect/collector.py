@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session
 from atalaya.collect.extract import extract_article, text_from_feed_html, _parse_dt
 from atalaya.collect.fetcher import PoliteFetcher
 from atalaya.collect.whitelist import (
-    geo_filter_ok, looks_like_content_farm, match_source, norm_domain,
+    event_abroad, geo_filter_ok, looks_like_content_farm, match_source, norm_domain,
 )
 from atalaya.config import Country, Zone, load_countries, load_keywords, load_schedule, load_sources
 from atalaya.db.models import Article, ArticleStatus, CollectRun, SourceRecord, utcnow
@@ -286,6 +286,14 @@ class Collector:
         title = (entry.get("title") or "").strip()
         if not link or not title:
             self._reject("entrada sin enlace o título")
+            return False
+
+        # §4 — el hecho debe ocurrir en el perímetro. La prensa nacional cubre
+        # a diario sucesos del extranjero; se descartan antes de gastar una
+        # petición en el texto íntegro.
+        abroad = event_abroad(country.code, title)
+        if abroad:
+            self._reject(f"hecho localizado fuera del perímetro: {abroad}")
             return False
 
         # Fecha del flujo: primer filtro de frescura (la fecha real del
