@@ -287,7 +287,8 @@ def test_el_barrido_es_idempotente(db):
     sweep_events(db)
     segunda = sweep_events(db)
 
-    assert segunda == {"retired": 0, "reattributed": 0, "geocoded": 0}
+    assert segunda == {"retired": 0, "reattributed": 0, "geocoded": 0,
+                       "retitled": 0}
 
 
 # ── el mapa debe seguir los filtros de la lista ──────────────────────────
@@ -330,3 +331,87 @@ def test_el_mapa_respeta_el_filtro_de_pais(db):
     con_filtro = client.get("/dashboard/map.json?country=BR", cookies=cookie).json()
     assert len(con_filtro["features"]) == 1    # el filtro manda
     assert con_filtro["features"][0]["geometry"]["coordinates"] == [-47.8828, -15.7939]
+
+
+# ── el panel de Brasil, primera prueba real ──────────────────────────────
+# Un panel entero de sucesos extranjeros: un dron sobre Rumanía, un autobús
+# volcado en Hungría, un profesor muerto en Cambridge, el terremoto de
+# Colombia. Todos publicados por CNN Brasil y O Globo, todos etiquetados
+# «Brasil». Dos fallos encadenados: la firma del medio en el titular hacía
+# de ancla local, y la sección internacional del propio diario —la etiqueta
+# más fiable que existe sobre dónde ocurre un hecho— no se leía.
+
+def test_la_firma_del_medio_no_ancla_el_hecho(db):
+    """«… na Colômbia | CNN Brasil» contenía «Brasil»: el filtro lo leía
+    como suceso brasileño y dejaba pasar el terremoto colombiano."""
+    run = _run(db)
+    ev = _viejo(db, run, "Número de mortos na Colômbia sobe para 294 | CNN Brasil",
+                country="BR",
+                urls=("https://www.cnnbrasil.com.br/internacional/mortos-colombia/",))
+
+    stats = process_daily(db, run, countries_filter=["BR"])
+
+    assert stats["retired"] == 1
+    db.refresh(ev)
+    assert ev.status == EventStatus.discarded.value
+    assert "Colômbia" in ev.score_detail["retirado"]
+
+
+def test_la_seccion_internacional_retira_lo_que_el_gazetteer_no_conoce(db):
+    """Ninguna lista de topónimos será completa. La sección que el propio
+    diario le puso al artículo sí sabe que el hecho ocurre fuera."""
+    run = _run(db)
+    ev = _viejo(db, run, "Ataque a tiros deixa quatro mortos em escola",
+                country="BR",
+                urls=("https://www.cnnbrasil.com.br/internacional/ataque-escola/",
+                      "https://oglobo.globo.com/mundo/noticia/ataque-escola.ghtml"))
+
+    stats = process_daily(db, run, countries_filter=["BR"])
+
+    assert stats["retired"] == 1
+    db.refresh(ev)
+    assert "internacional" in ev.score_detail["retirado"]
+
+
+def test_la_seccion_internacional_no_retira_un_hecho_del_perimetro(db):
+    """Un atentado en Caracas contado por O Globo va en «mundo», pero
+    ocurre dentro del perímetro: se conserva, no se tira."""
+    run = _run(db)
+    ev = _viejo(db, run, "Explosão em Caracas deixa três mortos",
+                country="BR",
+                urls=("https://oglobo.globo.com/mundo/noticia/explosao-caracas.ghtml",))
+
+    process_daily(db, run, countries_filter=["BR"])
+
+    db.refresh(ev)
+    assert ev.status != EventStatus.discarded.value
+
+
+def test_el_titular_pierde_la_firma_del_medio(db):
+    run = _run(db)
+    ev = _viejo(db, run, "Tiroteio deixa dois feridos no Rio | CNN Brasil",
+                country="BR",
+                urls=("https://www.cnnbrasil.com.br/nacional/tiroteio-rio/",))
+
+    process_daily(db, run, countries_filter=["BR"])
+
+    db.refresh(ev)
+    assert ev.title_es == "Tiroteio deixa dois feridos no Rio"
+
+
+def test_un_articulo_de_seccion_internacional_no_produce_evento(db):
+    run = _run(db)
+    _article(db, run, country="BR",
+             url="https://www.cnnbrasil.com.br/internacional/onibus-hungria/",
+             title="Acidente com ônibus deixa ao menos 12 mortos",
+             text="Ao menos 12 pessoas morreram quando um ônibus tombou "
+                  "durante a noite em uma rodovia. A polícia deteve o "
+                  "motorista do ônibus após o acidente com vítimas.")
+
+    stats = process_daily(db, run, countries_filter=["BR"])
+
+    assert stats["screened"] == 1
+    assert not list(db.scalars(select(Event)))
+    art = db.scalar(select(Article))
+    assert art.status == ArticleStatus.rejected.value
+    assert "internacional" in art.reject_reason

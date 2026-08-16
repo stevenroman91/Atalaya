@@ -92,11 +92,62 @@ _FOREIGN_PLACES = (
     "Estados Unidos da América", "Espanha", "França", "Alemanha", "Rússia",
     "Ucrânia", "Japão", "Indonésia", "Filipinas", "Turquia", "Irã", "Irão",
     "Colômbia", "Peru", "Bolívia", "Uruguai", "México", "Haiti",
+    # resto de Europa y del mundo: la prensa del perímetro cubre a diario
+    # sucesos de países que esta lista no nombraba, y el filtro los dejaba
+    # pasar por desconocidos — un dron sobre Rumanía acabó de alerta brasileña
+    "Rumanía", "Rumania", "Romênia", "Roménia", "Bucarest",
+    "Hungría", "Hungria", "Budapest", "Polonia", "Polônia", "Varsovia",
+    "Moldavia", "Moldávia", "Bielorrusia", "Bielorrússia",
+    "Grecia", "Grécia", "Atenas", "Bulgaria", "Serbia", "Sérvia", "Croacia",
+    "Chequia", "República Checa", "Praga", "Eslovaquia", "Austria", "Viena",
+    "Suiza", "Suíça", "Ginebra", "Genebra", "Bélgica", "Bruselas", "Bruxelas",
+    "Países Bajos", "Holanda", "Ámsterdam", "Amsterdã", "Dinamarca",
+    "Suecia", "Suécia", "Estocolmo", "Noruega", "Oslo", "Finlandia",
+    "Finlândia", "Irlanda", "Dublín", "Escocia", "Escócia", "Inglaterra",
+    "Gales", "Cambridge", "Oxford", "Mánchester", "Manchester",
+    "Estambul", "Istambul", "Ankara", "Líbano", "Beirut", "Jordania",
+    "Jordânia", "Arabia Saudí", "Arábia Saudita", "Emiratos Árabes",
+    "Catar", "Qatar", "Yemen", "Iémen", "Kuwait", "Cisjordania",
+    "Corea del Sur", "Coreia do Sul", "Seúl", "Seul", "Corea del Norte",
+    "Coreia do Norte", "Vietnam", "Vietnã", "Tailandia", "Tailândia",
+    "Malasia", "Malásia", "Singapur", "Singapura", "Camboya", "Myanmar",
+    "Pakistán", "Paquistão", "Bangladés", "Bangladesh", "Nepal",
+    "Sri Lanka", "Taiwán", "Taiwan", "Hong Kong", "Nueva Delhi",
+    "Argelia", "Argélia", "Túnez", "Tunísia", "Libia", "Líbia", "Sudán",
+    "Sudão", "Etiopía", "Etiópia", "Kenia", "Quênia", "Nairobi", "Ghana",
+    "Senegal", "Mali", "Malí", "Níger", "Chad", "Somalia", "Somália",
+    "Congo", "Angola", "Mozambique", "Moçambique", "Zimbabue", "Zimbábue",
+    "Nueva Zelanda", "Nova Zelândia", "Papúa", "Fiyi",
+    "Miami", "Houston", "Dallas", "Boston", "Filadelfia", "Atlanta",
+    "Denver", "Seattle", "Las Vegas", "San Francisco", "Nueva Jersey",
+    "Arizona", "Nevada", "Ohio", "Michigan", "Minnesota", "Luisiana",
 )
 
 
 def _needle_re(term: str) -> re.Pattern:
     return re.compile(rf"(?<!\w){re.escape(term)}(?!\w)", re.I)
+
+
+# El nombre del medio pegado al final del titular por el flujo RSS.
+_SITE_SUFFIX_RE = re.compile(r"\s+[|–—]\s+[^|–—]{2,40}\s*$")
+
+
+def strip_site_suffix(title: str) -> str:
+    """Quita el nombre del medio pegado al final del titular.
+
+    Los flujos rematan el titular con « | CNN Brasil » o « — O Globo ». No
+    es solo ruido: mentía sobre el lugar del hecho. «Número de mortos na
+    Colômbia sobe para 294 | CNN Brasil» contiene «Brasil», y el filtro de
+    perímetro leía esa firma como un ancla local — así entraba el terremoto
+    colombiano en el panel de Brasil, y con él todo lo que publica un medio
+    que se llama como su país. El nombre del medio no sitúa nada.
+
+    Solo se corta tras barra vertical o raya: el guion corto separa
+    demasiados titulares legítimos para arriesgarse.
+    """
+    if not title:
+        return ""
+    return _SITE_SUFFIX_RE.sub("", title).strip() or title.strip()
 
 
 def event_abroad(country: str, title: str, summary: str = "") -> str | None:
@@ -116,6 +167,7 @@ def event_abroad(country: str, title: str, summary: str = "") -> str | None:
         return None
     from atalaya.config import load_countries
 
+    title = strip_site_suffix(title)
     countries = load_countries()
     target = countries.get(country)
     if target is None:
@@ -147,6 +199,50 @@ def event_abroad(country: str, title: str, summary: str = "") -> str | None:
     for place in foreign:
         if _needle_re(place).search(summary):
             return place
+    return None
+
+
+# ── sección internacional (§4) ───────────────────────────────────────────
+# Un diario clasifica él mismo lo que ocurre fuera de sus fronteras. Esa
+# etiqueta la pone la redacción, no nosotros: es la señal más fiable que
+# existe de que el hecho no ocurre en el país del medio — más fiable que
+# cualquier lista de topónimos, que siempre tendrá agujeros.
+_FOREIGN_SECTIONS = (
+    "internacional", "internacionales", "internacionais", "mundo",
+    "world", "international", "exterior", "extranjero", "estrangeiro",
+)
+
+
+def foreign_section(url: str) -> str | None:
+    """Sección de la URL que sitúa el hecho fuera del país del medio, o None."""
+    try:
+        path = urlparse(url).path.lower()
+    except ValueError:
+        return None
+    for part in path.split("/"):
+        if part in _FOREIGN_SECTIONS:
+            return part
+    return None
+
+
+def perimeter_anchor(text: str) -> str | None:
+    """Lugar del perímetro vigilado nombrado en el texto, o None.
+
+    Sirve para no tirar por la borda lo que la sección internacional de un
+    medio publica sobre otro país vigilado: un atentado en Caracas contado
+    por O Globo va en «mundo», pero ocurre dentro del perímetro.
+    """
+    if not text:
+        return None
+    from atalaya.config import load_countries
+
+    for c in load_countries().values():
+        if _needle_re(c.name).search(text):
+            return c.name
+        for zone in c.zones:
+            for term in zone.query_terms:
+                if len(term) > 3 and _needle_re(term).search(text):
+                    return term
     return None
 
 

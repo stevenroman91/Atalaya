@@ -29,7 +29,7 @@ from atalaya.collect.extract import extract_article, text_from_feed_html, _parse
 from atalaya.collect.fetcher import PoliteFetcher
 from atalaya.collect.whitelist import (
     event_abroad, geo_filter_ok, looks_like_content_farm, match_source,
-    norm_domain, off_topic_section, perimeter_country_for,
+    norm_domain, off_topic_section, perimeter_country_for, strip_site_suffix,
 )
 from atalaya.config import Country, Zone, load_countries, load_keywords, load_schedule, load_sources
 from atalaya.db.models import Article, ArticleStatus, CollectRun, SourceRecord, utcnow
@@ -566,7 +566,7 @@ class Collector:
         art = Article(
             run_id=run.id, url=link, gn_url=gn_url, domain=domain,
             source_name=source_name, source_type=source_type,
-            title=ext["title"] or title, text=text,
+            title=strip_site_suffix(ext["title"] or title), text=text,
             lang=ext["lang"] or country.lang, published_at=published,
             country=country.code, zone_id=zone.id if zone else None,
             keyword=keyword, theme=theme,

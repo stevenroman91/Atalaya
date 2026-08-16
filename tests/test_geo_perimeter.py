@@ -86,3 +86,36 @@ def test_el_titular_local_zanja_aunque_el_resumen_hable_de_fuera():
     resumen = "El caso recuerda a los hechos de Colombia y Estados Unidos."
 
     assert event_abroad("MX", titulo, resumen) is None
+
+
+# ── la firma del medio en el titular ──────────────────────────────────────
+def test_se_recorta_el_nombre_del_medio():
+    from atalaya.collect.whitelist import strip_site_suffix
+
+    assert (strip_site_suffix("Número de mortos na Colômbia sobe | CNN Brasil")
+            == "Número de mortos na Colômbia sobe")
+    assert (strip_site_suffix("Tiroteo en Zacatecas — El Universal")
+            == "Tiroteo en Zacatecas")
+
+
+def test_un_guion_corto_no_se_toca():
+    """Demasiados titulares legítimos lo usan como puntuación propia."""
+    from atalaya.collect.whitelist import strip_site_suffix
+
+    t = "Operativo en Culiacán - Sinaloa deja cuatro detenidos"
+    assert strip_site_suffix(t) == t
+
+
+def test_la_firma_ya_no_ancla_el_hecho_en_el_pais():
+    from atalaya.collect.whitelist import event_abroad
+
+    assert event_abroad("BR", "Número de mortos na Colômbia sobe | CNN Brasil") \
+        == "Colômbia"
+
+
+def test_la_seccion_internacional_se_reconoce():
+    from atalaya.collect.whitelist import foreign_section
+
+    assert foreign_section("https://www.cnnbrasil.com.br/internacional/x/") == "internacional"
+    assert foreign_section("https://oglobo.globo.com/mundo/noticia/x.ghtml") == "mundo"
+    assert foreign_section("https://oglobo.globo.com/politica/noticia/x.ghtml") is None

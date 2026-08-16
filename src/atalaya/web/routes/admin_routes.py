@@ -171,7 +171,7 @@ async def sweep(request: Request, user_sess=Depends(require_admin),
 
     s = sweep_events(db)
     msg = (f"{s['retired']} retirados · {s['reattributed']} reatribuidos · "
-           f"{s['geocoded']} geolocalizados")
+           f"{s['geocoded']} geolocalizados · {s['retitled']} titulares limpiados")
     return RedirectResponse(f"/admin?notice=swept&swept={quote_plus(msg)}",
                             status_code=303)
 

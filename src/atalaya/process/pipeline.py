@@ -11,7 +11,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from atalaya.collect.whitelist import (
-    event_abroad, off_topic_section, perimeter_country_for,
+    event_abroad, foreign_section, off_topic_section, perimeter_anchor,
+    perimeter_country_for, strip_site_suffix,
 )
 from atalaya.config import load_countries, load_schedule, zone_by_id
 from atalaya.db.models import (
@@ -76,6 +77,18 @@ def _screen_stored(db: Session, code: str, articles: list[Article], stats: dict)
                 log.info("descartado en tratamiento [%s] %s", a.reject_reason, a.title[:100])
             continue
 
+        # El propio medio lo archivó en «internacional»/«mundo»: el hecho
+        # ocurre fuera de sus fronteras salvo que el titular nombre un lugar
+        # del perímetro (un suceso en Caracas contado por O Globo sigue
+        # siendo nuestro; la muerte de un profesor en Cambridge no).
+        foreign = foreign_section(a.url or "")
+        if foreign and not perimeter_anchor(strip_site_suffix(a.title or "")):
+            a.status = ArticleStatus.rejected.value
+            a.reject_reason = f"sección internacional del medio: {foreign}"
+            stats["screened"] += 1
+            log.info("descartado en tratamiento [%s] %s", a.reject_reason, a.title[:100])
+            continue
+
         kept.append(a)
     return kept
 
@@ -105,6 +118,15 @@ def screen_event(ev: Event) -> tuple[str | None, str | None]:
     ajenos = [s for s in off if s]
     if urls and len(ajenos) * 2 > len(urls):
         return None, f"sección ajena a la vigilancia: {ajenos[0]}"
+
+    # Sección internacional del medio, mismo criterio de mayoría. El ancla
+    # se busca en titular y resumen: si ninguno nombra un lugar vigilado,
+    # el hecho ocurre fuera aunque la lista de topónimos no lo conozca.
+    fuera = [s for s in (foreign_section(u) for u in urls) if s]
+    if urls and len(fuera) * 2 > len(urls):
+        texto = f"{strip_site_suffix(ev.title_es or '')}\n{ev.summary_es or ''}"
+        if not perimeter_anchor(texto):
+            return None, f"sección internacional del medio: {fuera[0]}"
     return None, None
 
 
@@ -124,7 +146,7 @@ def sweep_events(db: Session) -> dict:
     en el tratamiento diario, y eso obligaba a esperar una colecta entera
     —media hora— para aplicar una corrección de filtro.
     """
-    stats = {"retired": 0, "reattributed": 0, "geocoded": 0}
+    stats = {"retired": 0, "reattributed": 0, "geocoded": 0, "retitled": 0}
     _retire_screened_events(db, stats)
     db.commit()
     return stats
@@ -159,6 +181,11 @@ def _retire_screened_events(db: Session, stats: dict) -> None:
             log.info("evento retirado del panel [%s] %s", reason, (ev.title_es or "")[:100])
             continue
 
+        limpio = strip_site_suffix(ev.title_es or "")
+        if limpio and limpio != (ev.title_es or ""):
+            ev.title_es = limpio        # la firma del medio no es del titular
+            stats["retitled"] += 1
+
         if ev.lat is None or ev.lon is None:
             zone = zones.get(ev.zone_id) if ev.zone_id else None
             geo = (zone.geo if zone and zone.geo else None) or _country_geo(ev.country)
@@ -170,7 +197,7 @@ def _retire_screened_events(db: Session, stats: dict) -> None:
 def process_daily(db: Session, run: CollectRun, countries_filter: list[str] | None = None) -> dict:
     stats = {"clusters": 0, "published": 0, "pending_confirm": 0, "discarded": 0,
              "updated": 0, "screened": 0, "reattributed": 0, "retired": 0,
-             "geocoded": 0}
+             "geocoded": 0, "retitled": 0}
     countries = load_countries()
     zones = zone_by_id()
 
