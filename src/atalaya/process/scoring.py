@@ -13,7 +13,7 @@ from dataclasses import dataclass
 
 from atalaya.config import load_keywords
 from atalaya.db.models import Article
-from atalaya.process.cluster import Cluster, normalize
+from atalaya.process.cluster import Cluster, article_title, normalize
 
 
 def _hit_terms(hay_norm: str, terms: list[str]) -> list[str]:
@@ -98,12 +98,22 @@ def score_cluster(cluster: Cluster, lang: str) -> ScoreResult:
 # ── Clasificación (§5.5) ─────────────────────────────────────────────────────
 
 def classify_category(cluster: Cluster, lang: str) -> str:
-    hay = " ".join(normalize(f"{a.title} {(a.text or '')[:800]}") for a in cluster.articles)
+    """Categoría por señales léxicas, o «sin_clasificar».
+
+    El valor por defecto era «crimen de bajo impacto»: un hecho sin ninguna
+    señal de categoría se anunciaba como delito. Así el ACV de un diputado
+    en plena reunión y un dron derribado sobre Rumanía salieron en el panel
+    etiquetados «crimen de bajo impacto», en tarjeta ALERTA. Inventar una
+    categoría es peor que confesar que no la hay: el analista ve el hecho
+    igualmente —nada se descarta— pero sabe que la etiqueta no es nuestra.
+    """
+    hay = " ".join(normalize(f"{article_title(a)} {(a.text or '')[:800]}")
+                   for a in cluster.articles)
     kws = load_keywords()["categories"]
     for cat, langs in kws.items():   # orden del YAML = prioridad
         if _hit_terms(hay, langs.get(lang, langs.get("es", []))):
             return cat
-    return "crimen_bajo_impacto"
+    return "sin_clasificar"
 
 
 def classify_level(cluster: Cluster, lang: str) -> str:
@@ -115,11 +125,19 @@ def classify_level(cluster: Cluster, lang: str) -> str:
 
 def classify_type(category: str, sev: dict) -> str:
     """ALERTA si podemos formular recomendaciones concretas; NOTA INFORMATIVA
-    para hechos de contexto nacional sin recomendación operacional (§5.5)."""
+    para hechos de contexto nacional sin recomendación operacional (§5.5).
+
+    Un hecho sin categoría reconocida nunca es ALERTA: no sabemos ante qué
+    estamos, así que no hay conducta que recomendar. Sigue en el panel como
+    nota — el analista lo ve y decide — pero sin la insignia roja ni unas
+    recomendaciones fabricadas sobre una etiqueta que no sostenemos.
+    """
+    if category == "sin_clasificar":
+        return "NOTA"
     if sev.get("extreme") and category not in ("crimen_alto_impacto", "crimen_bajo_impacto",
                                                "desastre_natural"):
         return "NOTA"
     if category in ("crimen_alto_impacto", "crimen_bajo_impacto", "desastre_natural",
-                    "manifestacion"):
+                    "manifestacion", "accidente"):
         return "ALERTA"
     return "NOTA"

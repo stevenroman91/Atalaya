@@ -101,3 +101,82 @@ def test_divergence_sentence():
     sentence = divergence_sentence(casualty_figures([a, b]))
     assert sentence and "Prensa Libre" in sentence and "Soy502" in sentence
     assert "difieren" in sentence
+
+
+# ── el panel de Brasil: lo que no se sabe no se inventa ──────────────────
+# «Líder do PT recebe alta de UTI após sofrer AVC» y un dron derribado sobre
+# Rumanía salieron etiquetados «crimen de bajo impacto», en tarjeta ALERTA:
+# era el valor por defecto cuando ninguna señal de categoría acertaba.
+
+def _brart(title, text="", **kw):
+    from datetime import datetime, timezone
+    from atalaya.db.models import Article
+    d = dict(url=f"https://x.test/{abs(hash(title))}", domain="x.test",
+             source_name="X", source_type="independiente", title=title,
+             text=text, country="BR", lang="pt",
+             published_at=datetime.now(timezone.utc))
+    d.update(kw)
+    return Article(**d)
+
+
+def test_sin_senal_de_categoria_no_se_inventa_un_delito():
+    from atalaya.process.cluster import Cluster
+    from atalaya.process.scoring import classify_category, classify_type
+
+    cl = Cluster(articles=[_brart(
+        "Líder do PT na Câmara recebe alta de UTI após sofrer AVC",
+        "O deputado sofreu um acidente vascular cerebral durante uma "
+        "reunião do Colégio de Líderes e seguirá internado no hospital.")])
+
+    cat = classify_category(cl, "pt")
+    assert cat == "sin_clasificar"
+    assert classify_type(cat, {}) == "NOTA"      # nunca ALERTA
+
+
+def test_un_accidente_de_carretera_no_es_un_crimen():
+    from atalaya.process.cluster import Cluster
+    from atalaya.process.scoring import classify_category, classify_type
+
+    cl = Cluster(articles=[_brart(
+        "Acidente com ônibus deixa ao menos 12 mortos",
+        "O ônibus saiu da pista, caiu em uma vala e tombou na madrugada. "
+        "A polícia informou que o motorista do ônibus foi detido.")])
+
+    cat = classify_category(cl, "pt")
+    assert cat == "accidente"
+    assert classify_type(cat, {}) == "ALERTA"    # sigue interesando al analista
+
+
+def test_un_tiroteo_sigue_siendo_crimen_de_alto_impacto():
+    from atalaya.process.cluster import Cluster
+    from atalaya.process.scoring import classify_category
+
+    cl = Cluster(articles=[_brart(
+        "Tiroteio deixa dois mortos no centro do Rio",
+        "Homens armados dispararam contra um grupo de pessoas.")])
+
+    assert classify_category(cl, "pt") == "crimen_alto_impacto"
+
+
+# ── clustering: dos cifras sueltas no hacen un mismo hecho ───────────────
+def test_una_cifra_compartida_no_agrupa_dos_hechos_distintos():
+    from atalaya.process.cluster import cluster_articles
+
+    a = _brart("Romário deixa PL após 5 anos e declara apoio a Paes no Rio | CNN Brasil")
+    b = _brart("Terremoto de magnitude 5 atinge sul da Espanha e danifica casas | CNN Brasil")
+    a.id, b.id = 1, 2
+
+    clusters = cluster_articles([a, b])
+
+    assert len(clusters) == 2
+
+
+def test_dos_medios_sobre_el_mismo_hecho_siguen_agrupandose():
+    from atalaya.process.cluster import cluster_articles
+
+    a = _brart("Balacera deja dos heridos en el mercado oriental de Managua")
+    b = _brart("Dos heridos tras balacera en el mercado oriental de Managua",
+             domain="y.test", source_name="Y")
+    a.id, b.id = 3, 4
+
+    assert len(cluster_articles([a, b])) == 1

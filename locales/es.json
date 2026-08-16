@@ -56,6 +56,8 @@
   "cat_desastre_natural": "desastre natural",
   "cat_operacion_seguridad": "operación de seguridad",
   "cat_manifestacion": "manifestación",
+  "cat_accidente": "accidente",
+  "cat_sin_clasificar": "sin clasificar",
   "theme_politica": "Política",
   "theme_economia": "Economía",
   "theme_sanitario": "Riesgos sanitarios",

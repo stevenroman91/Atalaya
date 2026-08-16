@@ -33,7 +33,7 @@
     <label>{{ t('category') }}
       <select name="category">
         <option value="">{{ t('all') }}</option>
-        {% for cat in ['crimen_alto_impacto','crimen_bajo_impacto','desastre_natural','operacion_seguridad','manifestacion'] %}
+        {% for cat in ['crimen_alto_impacto','crimen_bajo_impacto','desastre_natural','operacion_seguridad','manifestacion','accidente','sin_clasificar'] %}
         <option value="{{ cat }}" {{ 'selected' if f.category == cat }}>{{ t('cat_' + cat) }}</option>
         {% endfor %}
       </select>

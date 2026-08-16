@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 
 from rapidfuzz import fuzz
 
+from atalaya.collect.whitelist import strip_site_suffix
 from atalaya.db.models import Article
 
 TITLE_THRESHOLD = 68          # % token_set_ratio (títulos sin stopwords) para considerar mismo evento
@@ -74,12 +75,34 @@ class Cluster:
         return hashlib.sha256(first.url.encode()).hexdigest()[:32]
 
 
+def _boosted(shared: set[str]) -> bool:
+    """¿Las entidades compartidas identifican de verdad el mismo hecho?
+
+    Dos cifras sueltas no bastan. «Romário deixa PL após **5** anos» y
+    «Terremoto de magnitude **5** atinge o sul da Espanha» compartían el
+    número 5 y la palabra «Brasil» —que venía de la firma « | CNN Brasil »
+    pegada a los dos titulares—, sumaban el boost y cruzaban el umbral por
+    kilómetro y medio: la dimisión de un diputado quedó agrupada con un
+    seísmo español, y el seísmo le prestó su categoría «desastre natural».
+    Se exige al menos un nombre propio compartido, no solo cifras.
+    """
+    named = {e for e in shared if not e.isdigit()}
+    return len(shared) >= 2 and bool(named)
+
+
+def article_title(a: Article) -> str:
+    """Titular sin la firma del medio. Se recorta también aquí, no solo en
+    la ingesta: los artículos guardados antes llevan « | CNN Brasil » en el
+    título, y esos dos tokens compartidos acercaban entre sí a todos los
+    artículos del mismo medio."""
+    return strip_site_suffix(a.title or "")
+
+
 def _similar(a: Article, b_norm: str, b_ents: set[str], a_norm_cache: dict) -> bool:
-    a_norm = a_norm_cache.setdefault(a.id, normalize(a.title))
+    a_norm = a_norm_cache.setdefault(a.id, normalize(article_title(a)))
     score = fuzz.token_set_ratio(a_norm, b_norm)
-    a_ents = extract_entities(a.title, a.text or "")
-    shared = len(a_ents & b_ents)
-    if shared >= 2:
+    a_ents = extract_entities(article_title(a), a.text or "")
+    if _boosted(a_ents & b_ents):
         score += ENTITY_BOOST
     return score >= TITLE_THRESHOLD
 
@@ -90,8 +113,8 @@ def cluster_articles(articles: list[Article]) -> list[Cluster]:
     clusters: list[Cluster] = []
     norm_cache: dict[int, str] = {}
     for art in sorted(articles, key=lambda a: (a.published_at or a.fetched_at, a.url)):
-        art_norm = normalize(art.title)
-        art_ents = extract_entities(art.title, art.text or "")
+        art_norm = normalize(article_title(art))
+        art_ents = extract_entities(article_title(art), art.text or "")
         placed = False
         for cl in clusters:
             if any(_similar(existing, art_norm, art_ents, norm_cache) for existing in cl.articles):

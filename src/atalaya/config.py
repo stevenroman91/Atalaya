@@ -32,6 +32,8 @@ CATEGORIES = [
     "desastre_natural",
     "operacion_seguridad",
     "manifestacion",
+    "accidente",
+    "sin_clasificar",
 ]
 CATEGORY_LABELS_ES = {
     "crimen_alto_impacto": "crimen de alto impacto",
@@ -39,6 +41,8 @@ CATEGORY_LABELS_ES = {
     "desastre_natural": "desastre natural",
     "operacion_seguridad": "operación de seguridad",
     "manifestacion": "manifestación",
+    "accidente": "accidente",
+    "sin_clasificar": "sin clasificar",
 }
 
 

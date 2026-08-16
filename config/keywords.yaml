@@ -85,11 +85,27 @@ severity:
 # Clasificación de categoría (§5.5) por señales léxicas. El primer grupo que
 # matchea gana; orden = prioridad.
 categories:
+  # Un accidente no es un delito, pero sí condiciona los desplazamientos:
+  # interesa al analista con su etiqueta correcta. Va primero porque la
+  # palabra «muertos» lo mandaba a «crimen de alto impacto» — un autobús
+  # volcado se anunciaba como crimen. Nada de «acidente» a secas: en
+  # portugués un ACV es un «acidente vascular cerebral».
+  accidente:
+    es: ["accidente de tránsito", "accidente vial", "accidente carretero",
+         "choque de vehículos", volcadura, volcó, atropellado, atropello,
+         descarrilamiento, "accidente aéreo", avionazo, naufragio,
+         derrumbe, "fuga de gas"]
+    pt: ["acidente de trânsito", "acidente rodoviário", colisão, capotamento, tombou,
+         atropelamento, atropelado, descarrilamento, "acidente aéreo",
+         naufrágio, desabamento, "vazamento de gás"]
   crimen_alto_impacto:
     es: [homicidio, asesinato, balacera, tiroteo, feminicidio, masacre, ejecutado,
-         secuestro, atentado, "cuerpo hallado", cadáver, muertos, muerto]
+         secuestro, atentado, "cuerpo hallado", cadáver, muertos, muerto,
+         "ataque armado", "disparos", "hombres armados", apuñalado, linchamiento,
+         levantón, granada, "sujetos armados"]
     pt: [homicídio, assassinato, tiroteio, chacina, feminicídio, sequestro,
-         atentado, corpo, mortos, morto]
+         atentado, corpo, mortos, morto, "ataque a tiros", disparos,
+         "homens armados", esfaqueado, linchamento, granada]
   desastre_natural:
     es: [sismo, terremoto, temblor, inundación, huracán, incendio, deslizamiento,
          erupción, tormenta]

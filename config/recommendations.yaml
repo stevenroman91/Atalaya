@@ -53,6 +53,9 @@ recommendations:
   crimen_bajo_impacto:
     - "Extremar precauciones en {lugar}: evitar exhibir objetos de valor."
     - "Privilegiar transporte seguro (vehículo oficial o aplicación verificada) en la zona."
+  accidente:
+    - "Prever un itinerario alternativo: la vía en {lugar} puede permanecer cortada."
+    - "Consultar el estado de la circulación antes de cualquier desplazamiento por la zona."
   desastre_natural:
     - "Seguir las consignas de protección civil locales para {lugar}."
     - "Verificar rutas alternativas antes de cualquier desplazamiento por la zona."

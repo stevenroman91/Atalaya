@@ -56,6 +56,8 @@
   "cat_desastre_natural": "natural disaster",
   "cat_operacion_seguridad": "security operation",
   "cat_manifestacion": "protest",
+  "cat_accidente": "accident",
+  "cat_sin_clasificar": "unclassified",
   "theme_politica": "Politics",
   "theme_economia": "Economy",
   "theme_sanitario": "Health risks",
