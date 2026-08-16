@@ -212,3 +212,42 @@ def test_un_evento_local_viejo_sigue_en_el_panel(db):
     assert stats["retired"] == 0
     db.refresh(ev)
     assert ev.status == EventStatus.published.value
+
+
+# ── el mapa: coordenadas de los eventos que nunca se reprocesan ──────────
+def test_evento_viejo_sin_coordenadas_las_recibe(db):
+    """El mapa salía vacío: las coordenadas solo se rellenaban al actualizar
+    un evento, y un evento fuera de la ventana de frescura nunca se
+    actualiza."""
+    run = _run(db)
+    ev = _viejo(db, run, "Balacera deja dos heridos en el centro de Culiacán",
+                urls=("https://www.eluniversal.com.mx/estados/balacera-culiacan/",))
+    assert ev.lat is None
+
+    stats = process_daily(db, run, countries_filter=["MX"])
+
+    assert stats["geocoded"] == 1
+    db.refresh(ev)
+    assert ev.lat is not None and ev.lon is not None
+
+
+def test_el_evento_retirado_no_se_geocodifica(db):
+    run = _run(db)
+    _viejo(db, run, "Terremoto frente a la costa de Indonesia deja 47 muertos")
+
+    stats = process_daily(db, run, countries_filter=["MX"])
+
+    assert stats["retired"] == 1
+    assert stats["geocoded"] == 0     # no se gasta en lo que sale del panel
+
+
+def test_evento_reatribuido_recibe_la_geo_de_su_pais_real(db):
+    run = _run(db)
+    ev = _viejo(db, run, "Balacera deja tres muertos en Caracas, Venezuela",
+                country="NI")
+
+    process_daily(db, run, countries_filter=["NI"])
+
+    db.refresh(ev)
+    assert ev.country == "VE"
+    assert ev.lat is not None          # y no se queda huérfano del mapa

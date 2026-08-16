@@ -121,5 +121,7 @@
   "coverage_title": "Fuentes no consultadas",
   "coverage_hint": "El flujo directo de estas fuentes no respondió en la última colecta. Su contenido puede llegar igualmente vía Google News, pero la cobertura directa está degradada.",
   "admin_probe": "Diagnosticar",
-  "admin_probe_hint": "Para las fuentes en fallo, «Diagnosticar» lee su portada y dice qué contiene — sin escribir nada en base."
+  "admin_probe_hint": "Para las fuentes en fallo, «Diagnosticar» lee su portada y dice qué contiene — sin escribir nada en base.",
+  "admin_probe_all": "Diagnosticar todas",
+  "admin_probing": "Diagnóstico en curso en segundo plano: recarga la página en un par de minutos para ver los resultados."
 }

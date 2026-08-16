@@ -121,5 +121,7 @@
   "coverage_title": "Sources not consulted",
   "coverage_hint": "These sources' direct feeds did not respond during the last collection. Their content may still arrive via Google News, but direct coverage is degraded.",
   "admin_probe": "Diagnose",
-  "admin_probe_hint": "For failing sources, “Diagnose” reads their home page and reports what it contains — writing nothing to the database."
+  "admin_probe_hint": "For failing sources, “Diagnose” reads their home page and reports what it contains — writing nothing to the database.",
+  "admin_probe_all": "Diagnose all",
+  "admin_probing": "Diagnosis running in the background: reload the page in a couple of minutes to see the results."
 }

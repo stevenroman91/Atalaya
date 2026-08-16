@@ -55,6 +55,11 @@ class SourceRecord(Base):
     last_ok_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     consecutive_failures: Mapped[int] = mapped_column(Integer, default=0)
     last_error: Mapped[str | None] = mapped_column(Text)
+    # Diagnóstico de portada: qué daría leer la página de inicio de esta
+    # fuente. Se persiste porque el barrido completo tarda minutos y su
+    # resultado debe sobrevivir a la recarga de la página.
+    probe_note: Mapped[str | None] = mapped_column(Text)
+    probe_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class ArticleStatus(str, enum.Enum):

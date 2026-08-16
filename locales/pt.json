@@ -121,5 +121,7 @@
   "coverage_title": "Fontes não consultadas",
   "coverage_hint": "O feed direto destas fontes não respondeu na última coleta. Seu conteúdo pode chegar via Google News, mas a cobertura direta está degradada.",
   "admin_probe": "Diagnosticar",
-  "admin_probe_hint": "Para as fontes em falha, «Diagnosticar» lê a sua página inicial e diz o que contém — sem escrever nada na base."
+  "admin_probe_hint": "Para as fontes em falha, «Diagnosticar» lê a sua página inicial e diz o que contém — sem escrever nada na base.",
+  "admin_probe_all": "Diagnosticar todas",
+  "admin_probing": "Diagnóstico em curso em segundo plano: recarregue a página daqui a dois minutos para ver os resultados."
 }

@@ -121,5 +121,7 @@
   "coverage_title": "Sources non consultées",
   "coverage_hint": "Le flux direct de ces sources n'a pas répondu lors de la dernière collecte. Leur contenu peut arriver via Google News, mais la couverture directe est dégradée.",
   "admin_probe": "Diagnostiquer",
-  "admin_probe_hint": "Pour les sources en échec, « Diagnostiquer » lit leur page d'accueil et indique ce qu'elle contient — sans rien écrire en base."
+  "admin_probe_hint": "Pour les sources en échec, « Diagnostiquer » lit leur page d'accueil et indique ce qu'elle contient — sans rien écrire en base.",
+  "admin_probe_all": "Tout diagnostiquer",
+  "admin_probing": "Diagnostic en cours en arrière-plan : rechargez la page dans deux minutes pour voir les résultats."
 }

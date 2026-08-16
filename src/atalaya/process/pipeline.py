@@ -108,20 +108,34 @@ def screen_event(ev: Event) -> tuple[str | None, str | None]:
     return None, None
 
 
-def _retire_screened_events(db: Session, stats: dict) -> None:
-    """Pasa por el filtro los eventos ya publicados, sin límite de antigüedad.
+def _country_geo(code: str) -> tuple[float, float] | None:
+    """Marcador a nivel país: primera zona con coordenadas conocidas."""
+    country = load_countries().get(code)
+    if country is None:
+        return None
+    return next((z.geo for z in country.zones if z.geo), None)
 
-    Se retiran del panel —estado «descartado», nunca borrados— o se
-    reatribuyen al país donde ocurre el hecho. El analista conserva la
-    posibilidad de contradecir el juicio.
+
+def _retire_screened_events(db: Session, stats: dict) -> None:
+    """Repasa los eventos publicados, sin límite de antigüedad.
+
+    Retira del panel —estado «descartado», nunca borrados—, reatribuye al
+    país donde ocurre el hecho, y rellena las coordenadas que falten.
+
+    Lo último importa para el mapa: hasta ahora las coordenadas solo se
+    rellenaban al actualizar un evento, y un evento se actualiza únicamente
+    si su cluster se vuelve a tratar — o sea, si sus artículos siguen en la
+    ventana de frescura. Los eventos de días anteriores quedaban sin
+    coordenadas para siempre, y el mapa vacío.
     """
+    zones = zone_by_id()
     live = (EventStatus.published.value, EventStatus.pending_confirm.value)
     for ev in db.scalars(select(Event).where(Event.status.in_(live))):
         other, reason = screen_event(ev)
         if other:
             ev.country = other
-            ev.zone_id = None
-            ev.lat = ev.lon = None      # la geo de la zona anterior ya no aplica
+            ev.zone_id = None           # la zona anterior era de otro país
+            ev.lat = ev.lon = None      # se recalculan abajo, sobre el país real
             stats["reattributed"] += 1
             log.info("evento reatribuido a %s: %s", other, (ev.title_es or "")[:100])
         elif reason:
@@ -129,11 +143,20 @@ def _retire_screened_events(db: Session, stats: dict) -> None:
             ev.score_detail = {**(ev.score_detail or {}), "retirado": reason}
             stats["retired"] += 1
             log.info("evento retirado del panel [%s] %s", reason, (ev.title_es or "")[:100])
+            continue
+
+        if ev.lat is None or ev.lon is None:
+            zone = zones.get(ev.zone_id) if ev.zone_id else None
+            geo = (zone.geo if zone and zone.geo else None) or _country_geo(ev.country)
+            if geo:
+                ev.lat, ev.lon = geo
+                stats["geocoded"] += 1
 
 
 def process_daily(db: Session, run: CollectRun, countries_filter: list[str] | None = None) -> dict:
     stats = {"clusters": 0, "published": 0, "pending_confirm": 0, "discarded": 0,
-             "updated": 0, "screened": 0, "reattributed": 0, "retired": 0}
+             "updated": 0, "screened": 0, "reattributed": 0, "retired": 0,
+             "geocoded": 0}
     countries = load_countries()
     zones = zone_by_id()
 

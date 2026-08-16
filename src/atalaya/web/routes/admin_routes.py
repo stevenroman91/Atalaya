@@ -89,6 +89,77 @@ async def collect_now(request: Request, user_sess=Depends(require_admin),
     return RedirectResponse("/admin?notice=started", status_code=303)
 
 
+def probe_domain(domain: str, fetcher=None) -> str:
+    """Qué daría leer la portada de esta fuente. Mide, no escribe.
+
+    Existe porque la lectura de portada se programó sin poder verla nunca:
+    el entorno de desarrollo no tiene salida a internet. Devuelve números
+    —cuántos enlaces, cuántos con forma de artículo, cuántos pertinentes—
+    para decidir con datos, no con suposiciones.
+    """
+    from atalaya.collect.collector import Collector
+    from atalaya.collect.fetcher import PoliteFetcher
+    from atalaya.collect.whitelist import norm_domain, off_topic_section
+
+    d = norm_domain(domain)
+    resp = (fetcher or PoliteFetcher()).get(f"https://{d}/")
+    if not resp:
+        return "portada inalcanzable (robots.txt lo impide o el sitio no responde)"
+
+    base = str(getattr(resp, "url", "") or f"https://{d}/")
+    html = resp.text or ""
+    anchors = len(Collector._LINK_RE.findall(html))
+    links = Collector._article_links_from_html(base, html, norm_domain(base))
+    useful = [(u, t) for u, t in links if not off_topic_section(u)]
+    # Encontrar artículos manda sobre el recuento bruto: una portada sobria
+    # con 4 enlaces útiles vale más que una con 200 de navegación.
+    if not links and anchors < 10:
+        return ("casi sin enlaces en el HTML: portada construida por "
+                "JavaScript — leerla no aportaría nada")
+    if not links:
+        return (f"{anchors} enlaces, pero ninguno con forma de artículo: "
+                "sus URL no encajan con el filtro")
+    if not useful:
+        return f"{len(links)} artículos, todos en secciones ajenas a la vigilancia"
+    return (f"{anchors} enlaces · {len(links)} con forma de artículo · "
+            f"{len(useful)} pertinentes. Ejemplo: «{useful[0][1][:70]}»")
+
+
+def _probe_all_in_background() -> None:
+    """Diagnostica en un hilo todas las fuentes en fallo, una tras otra.
+
+    Secuencial a propósito: son peticiones a sitios que ya nos cuestan
+    trabajo, y la cortesía del fetcher no se negocia por comodidad.
+    """
+    from atalaya.collect.fetcher import PoliteFetcher
+    from atalaya.db import SessionLocal
+
+    def worker():
+        fetcher = PoliteFetcher()
+        with SessionLocal() as job_db:
+            failing = list(job_db.scalars(
+                select(SourceRecord).where(SourceRecord.consecutive_failures > 0)))
+            for src in failing:
+                try:
+                    note = probe_domain(src.domain, fetcher)
+                except Exception as exc:                      # una fuente no tumba el barrido
+                    log.exception("diagnóstico de %s falló", src.domain)
+                    note = f"el diagnóstico falló: {type(exc).__name__}"
+                src.probe_note = note
+                src.probe_at = datetime.now(timezone.utc)
+                job_db.commit()                               # visible al recargar
+
+    threading.Thread(target=worker, daemon=True, name="probe-all").start()
+
+
+@router.post("/probe-all")
+async def probe_all(request: Request, user_sess=Depends(require_admin),
+                    db: Session = Depends(get_db)):
+    await check_csrf(request, user_sess)
+    _probe_all_in_background()
+    return RedirectResponse("/admin?notice=probing", status_code=303)
+
+
 @router.post("/probe-home")
 async def probe_home(request: Request, user_sess=Depends(require_admin),
                      db: Session = Depends(get_db)):
@@ -107,40 +178,13 @@ async def probe_home(request: Request, user_sess=Depends(require_admin),
     if not domain:
         return RedirectResponse("/admin", status_code=303)
 
-    from atalaya.collect.collector import Collector
-    from atalaya.collect.fetcher import PoliteFetcher
-    from atalaya.collect.whitelist import norm_domain, off_topic_section
-
-    d = norm_domain(domain)
-    resp = PoliteFetcher().get(f"https://{d}/")
-    if not resp:
-        return RedirectResponse(
-            f"/admin?probe={quote_plus(d)}&probe_msg="
-            f"{quote_plus('portada inalcanzable (robots.txt lo impide o el sitio no responde)')}",
-            status_code=303)
-
-    base = str(getattr(resp, "url", "") or f"https://{d}/")
-    html = resp.text or ""
-    anchors = len(Collector._LINK_RE.findall(html))
-    links = Collector._article_links_from_html(base, html, norm_domain(base))
-    useful = [(u, t) for u, t in links if not off_topic_section(u)]
-    # Encontrar artículos manda sobre el recuento bruto: una portada sobria
-    # con 4 enlaces útiles vale más que una con 200 de navegación.
-    if not links and anchors < 10:
-        verdict = ("casi sin enlaces en el HTML: portada construida por "
-                   "JavaScript — leerla no aportaría nada")
-    elif not links:
-        verdict = (f"{anchors} enlaces, pero ninguno con forma de artículo: "
-                   "sus URL no encajan con el filtro")
-    elif not useful:
-        verdict = (f"{len(links)} artículos, todos en secciones ajenas a la "
-                   "vigilancia")
-    else:
-        verdict = (f"{anchors} enlaces · {len(links)} con forma de artículo · "
-                   f"{len(useful)} pertinentes. Ejemplo: «{useful[0][1][:70]}»")
-    return RedirectResponse(
-        f"/admin?probe={quote_plus(d)}&probe_msg={quote_plus(verdict)}",
-        status_code=303)
+    src = db.scalar(select(SourceRecord).where(SourceRecord.domain == domain))
+    note = probe_domain(domain)
+    if src is not None:
+        src.probe_note = note
+        src.probe_at = datetime.now(timezone.utc)
+        db.commit()
+    return RedirectResponse("/admin", status_code=303)
 
 
 @router.post("/collect-cancel")
