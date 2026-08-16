@@ -90,7 +90,7 @@ def screen_event(ev: Event) -> tuple[str | None, str | None]:
     quedaban congelados — demasiado viejos para volver a tratarse, pero
     aún visibles en el panel.
     """
-    abroad = event_abroad(ev.country, ev.title_es or "")
+    abroad = event_abroad(ev.country, ev.title_es or "", ev.summary_es or "")
     if abroad:
         other = perimeter_country_for(abroad)
         if other and other != ev.country:

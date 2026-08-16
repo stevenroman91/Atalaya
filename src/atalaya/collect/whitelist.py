@@ -99,12 +99,18 @@ def _needle_re(term: str) -> re.Pattern:
     return re.compile(rf"(?<!\w){re.escape(term)}(?!\w)", re.I)
 
 
-def event_abroad(country: str, title: str) -> str | None:
+def event_abroad(country: str, title: str, summary: str = "") -> str | None:
     """Lugar extranjero que sitúa el hecho fuera del perímetro, o None.
 
-    Solo mira el titular: es donde la prensa nombra el lugar del suceso. Un
-    gentilicio no cuenta como localización — «Nicaragüense muere en Texas»
-    ocurre en Texas, no en Nicaragua.
+    El titular manda: es donde la prensa nombra el lugar del suceso, y un
+    ancla local en él zanja la cuestión. Un gentilicio no cuenta como
+    localización — «Nicaragüense muere en Texas» ocurre en Texas.
+
+    Pero un titular puede no nombrar ningún lugar: «La trágica historia de
+    la trilliza colombiana que sobrevivió al terremoto» no dice dónde pasó
+    —solo el gentilicio— y así se colaba como suceso argentino. Cuando el
+    titular no ancla nada, se mira el resumen: si nombra un lugar extranjero
+    y ninguno del perímetro vigilado, el hecho ocurre fuera.
     """
     if not title:
         return None
@@ -127,10 +133,19 @@ def event_abroad(country: str, title: str) -> str | None:
     # los demás países vigilados también son «extranjero» entre sí
     foreign = [c.name for code, c in countries.items() if code != country]
     foreign += list(_FOREIGN_PLACES)
+    foreign = [p for p in foreign if p.lower() != target.name.lower()]
+
     for place in foreign:
-        if place.lower() == target.name.lower():
-            continue
         if _needle_re(place).search(title):
+            return place
+
+    # Titular mudo sobre el lugar: el resumen decide, y solo si es unánime.
+    # Exigir que NO haya ancla local evita descartar un suceso local cuyo
+    # texto menciona el extranjero de pasada.
+    if not summary or any(_needle_re(t).search(summary) for t in local):
+        return None
+    for place in foreign:
+        if _needle_re(place).search(summary):
             return place
     return None
 
