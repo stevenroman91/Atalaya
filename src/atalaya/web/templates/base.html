@@ -15,7 +15,6 @@
   <a href="/dashboard" class="navlink {{ 'active' if request.url.path.startswith('/dashboard') }}">{{ t('dashboard') }}</a>
   <a href="/weekly" class="navlink {{ 'active' if request.url.path.startswith('/weekly') }}">{{ t('weekly') }}</a>
   <a href="/monthly" class="navlink {{ 'active' if request.url.path.startswith('/monthly') }}">{{ t('monthly') }}</a>
-  <a href="/cobertura" class="navlink {{ 'active' if request.url.path.startswith('/cobertura') }}">{{ t('cov_title') }}</a>
   {% if user.role == 'admin' %}<a href="/admin" class="navlink {{ 'active' if request.url.path.startswith('/admin') }}">{{ t('admin') }}</a>{% endif %}
   <span class="spacer"></span>
   <a href="/account" class="navlink {{ 'active' if request.url.path.startswith('/account') }}">{{ t('my_account') }}</a>

@@ -46,7 +46,10 @@ def admin_home(request: Request, invite_link: str | None = None, error: str | No
         progress = {"done": active_run.progress_done,
                     "total": active_run.progress_total,
                     "stored": stored, "run_id": active_run.id}
+    from atalaya.web.routes.coverage import api_rows
+
     return render(request, "admin.html", user=user, csrf=sess.csrf_token,
+                  apis=api_rows(db),
                   invitations=invitations, users=users, sources=sources,
                   runs=runs, invite_link=invite_link, error=error, notice=notice,
                   collect_running=active_run is not None, progress=progress,
@@ -228,7 +231,9 @@ async def probe_apis(request: Request, user_sess=Depends(require_admin),
                      db: Session = Depends(get_db)):
     await check_csrf(request, user_sess)
     _probe_apis_in_background()
-    return RedirectResponse("/admin?notice=probing", status_code=303)
+    # aviso propio: el genérico decía «un par de minutos» y mandaba recargar
+    # sin decir dónde mirar. Son tres peticiones: unos segundos.
+    return RedirectResponse("/admin?notice=probing_apis", status_code=303)
 
 
 def _probe_all_in_background() -> None:

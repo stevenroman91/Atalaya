@@ -9,6 +9,7 @@
 {% elif notice == 'running' %}<p class="error">{{ t('admin_collect_running') }}</p>
 {% elif notice == 'cancelling' %}<p class="ok">{{ t('admin_collect_cancelling') }}</p>
 {% elif notice == 'probing' %}<p class="ok">{{ t('admin_probing') }}</p>
+{% elif notice == 'probing_apis' %}<p class="ok">{{ t('admin_probing_apis') }}</p>
 {% elif notice == 'swept' %}<p class="ok">{{ t('admin_swept') }}{% if swept %} — {{ swept }}{% endif %}</p>{% endif %}
 {% if invite_link %}
 <div class="invitelink">
@@ -93,7 +94,6 @@
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <button type="submit" class="button secondary">{{ t('admin_probe_apis') }}</button>
     </form>
-    <a href="/cobertura" class="button secondary">{{ t('admin_coverage') }}</a>
     {% if collect_running %}
     <form method="post" action="/admin/collect-cancel" class="inline">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -101,6 +101,25 @@
     </form>
     {% endif %}
   </div>
+  {% if apis %}
+  <div class="tablewrap"><table>
+    <thead><tr><th>API</th><th>{{ t('cov_state') }}</th><th>{{ t('cov_probe_result') }}</th></tr></thead>
+    <tbody>
+    {% for a in apis %}
+    <tr class="cov cov-{{ 'produce' if a.estado == 'ok' else 'bloqueada' if a.estado == 'fallando' else 'sin_datos' }}">
+      <td><strong>{{ a.name }}</strong> <span class="mono muted">{{ a.domain }}</span></td>
+      <td><span class="dot dot-{{ {'ok': 'produce', 'fallando': 'bloqueada',
+                                   'off': 'sin_datos'}.get(a.estado, 'sin_datos') }}"
+                aria-hidden="true"></span>
+        {{ t('cov_api_' + a.estado) }}</td>
+      <td>{% if a.note %}{{ a.note }}
+        {% if a.probe_at %}<br><span class="muted small">{{ a.probe_at.strftime('%Y-%m-%d %H:%M UTC') }}</span>{% endif %}
+        {% else %}<span class="muted small">{{ t('cov_api_never') }}</span>{% endif %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% endif %}
   {% if progress %}
   <div class="progresswrap">
     {% set pct = (progress.done / progress.total * 100) | round(0) | int if progress.total else 0 %}

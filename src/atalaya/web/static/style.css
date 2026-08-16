@@ -506,3 +506,12 @@ tr.cov-dns td:first-child, tr.cov-tls td:first-child { box-shadow: inset 3px 0 0
 tr.cov-bloqueada td:first-child { box-shadow: inset 3px 0 0 var(--warn); }
 /* robots.txt: no es un fallo nuestro y no hay nada que arreglar. */
 tr.cov-robots { opacity: .62; }
+/* La cobertura al pie del panel: plegada por defecto, no roba la vista. */
+details.coverage > summary {
+  cursor: pointer; display: flex; flex-wrap: wrap; gap: .5rem;
+  align-items: baseline; list-style: none;
+}
+details.coverage > summary::-webkit-details-marker { display: none; }
+details.coverage > summary::before { content: "▸ "; color: var(--muted); }
+details.coverage[open] > summary::before { content: "▾ "; }
+details.coverage .warn-sum { color: var(--warn-text); font-weight: 600; }

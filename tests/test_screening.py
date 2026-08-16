@@ -467,19 +467,38 @@ def test_las_pestanas_cuentan_los_paises_fuera_del_perfil(db):
 
 
 def test_la_cobertura_marca_las_fuentes_a_revisar_a_mano(db):
+    """La cobertura vive al pie del panel, sobre los mismos filtros que la
+    lista: una página aparte repetía las pestañas para nada."""
     from atalaya.db.models import SourceRecord
 
-    db.add(SourceRecord(domain="milenio.com", name="Milenio",
-                        consecutive_failures=3, last_error="403",
+    db.add(SourceRecord(domain="ntrzacatecas.com", name="NTR Zacatecas",
+                        consecutive_failures=3,
+                        last_error="sin flujo; portada sin artículos legibles",
                         probe_note="portada inalcanzable"))
     db.commit()
 
     client, cookie = _admin_client(db)
-    page = client.get("/cobertura", cookies=cookie)
+    page = client.get("/dashboard", cookies=cookie)
 
     assert page.status_code == 200
-    assert "Milenio" in page.text
+    assert "NTR Zacatecas" in page.text
     assert "cov-inalcanzable" in page.text     # destacada en cabeza de tabla
+
+
+def test_un_403_no_cuenta_como_a_revisar_a_mano(db):
+    """No nos disfrazamos para pasar un bloqueo: no hay nada que decidir."""
+    from atalaya.db.models import SourceRecord
+
+    db.add(SourceRecord(domain="milenio.com", name="Milenio",
+                        consecutive_failures=3,
+                        last_error="sin flujo; el sitio nos responde 403"))
+    db.commit()
+
+    client, cookie = _admin_client(db)
+    page = client.get("/dashboard", cookies=cookie)
+
+    assert "cov-bloqueada" in page.text
+    assert "cov-inalcanzable" not in page.text
 
 
 def test_una_fuente_que_produjo_articulos_sale_como_produce(db):
@@ -489,14 +508,15 @@ def test_una_fuente_que_produjo_articulos_sale_como_produce(db):
     db.commit()
 
     client, cookie = _admin_client(db)
-    page = client.get("/cobertura", cookies=cookie)
+    page = client.get("/dashboard", cookies=cookie)
 
     assert "cov-produce" in page.text
 
 
 def test_la_cobertura_es_para_el_analista_no_para_el_admin(db):
     """Estaba bajo /admin, donde el analista no entra — y es él quien
-    necesita saber qué se ha consultado antes de fiarse de un panel vacío."""
+    necesita saber qué se ha consultado antes de fiarse de un panel vacío.
+    Ahora está en su panel, sin pestaña ni filtros duplicados."""
     import os
 
     from fastapi.testclient import TestClient
@@ -521,15 +541,16 @@ def test_la_cobertura_es_para_el_analista_no_para_el_admin(db):
                                "password": "analista-password-1"},
                          follow_redirects=False).cookies
 
-    page = client.get("/cobertura", cookies=cookie)
+    page = client.get("/dashboard", cookies=cookie)
     assert page.status_code == 200
+    assert "cov_title" not in page.text          # la clave se ha traducido
     analista = db.scalar(select(User).where(User.email == "analista@example.org"))
     assert analista.role == "analista"          # sin ser admin
 
 
-def test_el_resultado_de_probar_las_api_se_ve_en_la_cobertura(db):
-    """Sin bloque propio, el veredicto del botón no aparecía en ningún sitio:
-    las API no están en sources.yaml y no cubren un país."""
+def test_el_resultado_de_probar_las_api_se_ve_donde_se_pulsa(db):
+    """El botón está en /admin: el resultado debe verse en /admin. Mandar al
+    usuario buscarlo en otra página era la razón de su pregunta."""
     from atalaya.db.models import SourceRecord
 
     db.add(SourceRecord(domain="earthquake.usgs.gov", name="USGS (sismos)",
@@ -538,7 +559,7 @@ def test_el_resultado_de_probar_las_api_se_ve_en_la_cobertura(db):
     db.commit()
 
     client, cookie = _admin_client(db)
-    page = client.get("/cobertura", cookies=cookie)
+    page = client.get("/admin", cookies=cookie)
 
     assert "USGS" in page.text
     assert "M 5.4" in page.text

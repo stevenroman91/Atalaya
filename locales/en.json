@@ -167,5 +167,7 @@
   "cov_st_bloqueada": "the site blocks us",
   "cov_st_dns": "domain does not resolve",
   "cov_st_tls": "invalid certificate",
-  "cov_blocked_n": "closed to us"
+  "cov_blocked_n": "closed to us",
+  "admin_probing_apis": "API test started — three requests, a few seconds. Reload this page: the result appears just below, and also in «Coverage by country».",
+  "cov_api_fallando": "tested, but the last attempt failed"
 }

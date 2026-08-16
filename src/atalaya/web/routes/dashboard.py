@@ -10,13 +10,15 @@ from sqlalchemy.orm import Session
 
 from sqlalchemy import select
 
-from atalaya.db.models import EventStatus, SourceRecord, utcnow
+from atalaya.db.models import EventStatus, utcnow
 from atalaya.web.deps import current_user, get_db, render, templates
 from atalaya.web.events_view import (
     EventFilters, counters, country_tabs, default_filters_for, localize_event,
     query_events, timeline,
 )
 from atalaya.web.i18n import translator
+from atalaya.web.routes.coverage import WINDOW_HOURS as COVERAGE_WINDOW
+from atalaya.web.routes.coverage import coverage_blocks
 
 router = APIRouter()
 
@@ -71,18 +73,17 @@ def dashboard(request: Request,
 
     stats = counters(db, f)
     tl = timeline(db, f)
-    # Transparence de couverture (§7): fuentes cuyo flujo directo falló en la
-    # última colecta — el analista debe saber qué NO se pudo consultar.
-    unreachable = [s.name for s in db.scalars(
-        select(SourceRecord).where(SourceRecord.consecutive_failures >= 1)
-        .order_by(SourceRecord.consecutive_failures.desc(), SourceRecord.name))]
+    # Transparence de couverture (§7): qué se consultó de verdad, sobre los
+    # MISMOS filtros que la lista. Antes era una tira de nombres sin cifras
+    # ni enlaces; luego una página aparte, que repetía pestañas y filtros.
+    cobertura = coverage_blocks(db, f.countries or None)
     user.last_seen_at = utcnow()      # marcador «nuevo» por cuenta
     db.commit()
 
     query = dict(request.query_params)
     return render(request, "dashboard.html", user=user, csrf=sess.csrf_token,
                   events=events, stats=stats, timeline=tl, f=f,
-                  unreachable_sources=unreachable,
+                  cobertura=cobertura, window_hours=COVERAGE_WINDOW,
                   tabs=country_tabs(db, f, query, list(user.countries or [])),
                   query=query)
 

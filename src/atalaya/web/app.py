@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from atalaya.web.routes import (
-    account, admin_routes, auth_routes, coverage, dashboard, weekly_monthly,
+    account, admin_routes, auth_routes, dashboard, weekly_monthly,
 )
 
 log = logging.getLogger(__name__)
@@ -88,7 +88,6 @@ app.include_router(dashboard.router)
 app.include_router(weekly_monthly.router)
 app.include_router(account.router)
 app.include_router(admin_routes.router)
-app.include_router(coverage.router)
 
 
 @app.get("/")

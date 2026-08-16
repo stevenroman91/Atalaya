@@ -1,26 +1,26 @@
-"""Cobertura por país (§7): qué se consultó, qué dio material y qué hay que
-mirar a mano.
+"""Cobertura (§7): qué se consultó, qué dio material y qué hay que mirar a
+mano. No es una página: es una sección al pie del panel.
 
 La lista plana de fuentes del panel de administración no contestaba la
 pregunta que se hace el analista todas las mañanas: «para este país, ¿qué he
 mirado de verdad?». Un medio puede estar verde en la lista y no haber dado
 un solo artículo pertinente; otro puede fallar desde hace tres días sin que
-nadie lo note porque Google News tapa el agujero. Aquí se agrupa por país y
-cada fuente lleva un veredicto explícito.
+nadie lo note porque Google News tapa el agujero.
+
+Tuvo una página propia durante media hora. Era un error: repetía las
+pestañas y los filtros del panel para responder a una pregunta que solo
+tiene sentido pegada a los eventos que se están leyendo. Ahora es un
+desplegable al final del panel, sobre los mismos filtros.
 """
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, Request
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from atalaya.config import load_apis, load_countries, load_sources
 from atalaya.db.models import Article, ArticleStatus, Event, EventStatus, SourceRecord
-from atalaya.web.deps import current_user, get_db, render
-
-router = APIRouter()
 
 WINDOW_HOURS = 24
 MAX_ARTICLES = 4000     # techo de seguridad de la consulta
@@ -69,22 +69,48 @@ def _verdict(rec: SourceRecord | None, kept: int, rejected: int) -> tuple[str, s
 
 # Orden de lectura: primero lo que exige una decisión nuestra, al final lo
 # que funciona. `robots` va abajo del bloque de fallos: no hay nada que hacer.
+def api_rows(db: Session) -> list[dict]:
+    """Estado de las API abiertas. Compartido con el panel de administración:
+    quien pulsa «Probar las API» está en /admin y debe ver ahí el resultado,
+    sin tener que adivinar en qué otra página mirar."""
+    records = {r.domain: r for r in db.scalars(select(SourceRecord))}
+    out = []
+    for key, cfg in load_apis().items():
+        rec = records.get(cfg.get("domain") or "")
+        probada = rec is not None and rec.last_ok_at is not None
+        # El estado debe describir la ÚLTIMA prueba, no la mejor de todas.
+        # Mostrar «probada y activa» junto a «el sitio nos responde 429» era
+        # una contradicción: el sello venía de un intento anterior.
+        fallando = bool(rec is not None and rec.consecutive_failures)
+        out.append({
+            "key": key, "name": cfg.get("name", key),
+            "url": cfg.get("url"), "domain": cfg.get("domain"),
+            "enabled": bool(cfg.get("enabled")),
+            "verified": probada,
+            "estado": ("off" if not cfg.get("enabled") else
+                       "fallando" if probada and fallando else
+                       "ok" if probada else "untested"),
+            "note": rec.probe_note if rec else None,
+            "probe_at": rec.probe_at if rec else None,
+            "last_ok": rec.last_ok_at if rec else None,
+        })
+    return out
+
+
 ORDER = {"dns": 0, "inalcanzable": 1, "bloqueada": 2, "tls": 3, "sin_datos": 4,
          "robots": 5, "sin_material": 6, "filtrado": 7, "produce": 8}
 # Lo que cuenta como «a revisar a mano»: solo lo accionable.
 ACCIONABLE = ("dns", "inalcanzable", "tls", "sin_datos")
 
 
-@router.get("/cobertura")
-def coverage(request: Request, user_sess=Depends(current_user),
-             db: Session = Depends(get_db)):
-    """Página de analista, no de administrador.
+def coverage_blocks(db: Session, codes: list[str] | None = None) -> list[dict]:
+    """Cobertura por país, para los países pedidos (todos si no se dice).
 
-    Estaba bajo /admin, donde el analista no entra — y es él quien necesita
-    saber qué se ha consultado antes de fiarse de un panel vacío. Saber que
-    Nicaragua tiene diez fuentes caídas cambia cómo se lee «0 eventos».
+    Vive en el panel, al pie de la lista de eventos y filtrada por el país
+    que el analista está mirando: la pregunta «¿qué se ha consultado?» solo
+    tiene sentido pegada a los eventos que se están leyendo. Una pestaña
+    aparte la habría convertido en una página que nadie abre.
     """
-    user, sess = user_sess
     since = datetime.now(timezone.utc) - timedelta(hours=WINDOW_HOURS)
 
     # Los artículos mismos, no solo su recuento: el analista quiere abrir la
@@ -115,7 +141,7 @@ def coverage(request: Request, user_sess=Depends(current_user),
     sources = load_sources()
     bloques = []
     for code, country in load_countries().items():
-        if not country.daily:
+        if not country.daily or (codes and code not in codes):
             continue
         filas = []
         for src in sources:
@@ -156,21 +182,4 @@ def coverage(request: Request, user_sess=Depends(current_user),
             "rejected": sum(r["rejected"] for r in filas),
         })
 
-    # Las API abiertas no están en sources.yaml y no cubren un país concreto:
-    # tienen su propio bloque. Sin él, el resultado del botón «Probar las
-    # API» no se veía en ninguna parte.
-    apis = []
-    for key, cfg in load_apis().items():
-        rec = records.get(cfg.get("domain") or "")
-        apis.append({
-            "key": key, "name": cfg.get("name", key),
-            "url": cfg.get("url"), "domain": cfg.get("domain"),
-            "enabled": bool(cfg.get("enabled")),
-            "verified": rec is not None and rec.last_ok_at is not None,
-            "note": rec.probe_note if rec else None,
-            "probe_at": rec.probe_at if rec else None,
-            "last_ok": rec.last_ok_at if rec else None,
-        })
-
-    return render(request, "cobertura.html", user=user, csrf=sess.csrf_token,
-                  bloques=bloques, apis=apis, window_hours=WINDOW_HOURS)
+    return bloques
