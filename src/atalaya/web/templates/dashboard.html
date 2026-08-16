@@ -176,6 +176,13 @@
     <span class="muted small">{{ dudosos|length }} {{ t('doubt_count') }}</span>
   </summary>
   <p class="section-hint">{{ t('doubt_hint', umbral=(umbral * 100) | round | int) }}</p>
+  {# Los veredictos anteriores al umbral no se arreglan decidiendo: nadie
+     declaró su certeza, hay que volver a preguntarle al modelo. #}
+  {% set sin_conf = dudosos | selectattr('confianza', 'none') | list | length %}
+  {% if sin_conf %}
+  <p class="section-hint">{{ t('doubt_stale', n=sin_conf) }}
+    {% if user.role == 'admin' %}<a href="/admin">{{ t('admin_reclassify') }}</a>{% endif %}</p>
+  {% endif %}
   <div class="tablewrap"><table>
     <thead><tr>
       <th>{{ t('doubt_event') }}</th><th>{{ t('doubt_now') }}</th>

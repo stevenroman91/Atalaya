@@ -194,5 +194,6 @@
   "doubt_proposal": "Propuesta del modelo",
   "doubt_why": "Motivo",
   "doubt_confidence": "confianza",
-  "doubt_noconf": "confianza no declarada"
+  "doubt_noconf": "confianza no declarada",
+  "doubt_stale": "{n} de estos veredictos son anteriores al umbral: nadie declaró su certeza, así que se muestran por prudencia. No se arreglan decidiendo, sino volviendo a pasar el clasificador."
 }

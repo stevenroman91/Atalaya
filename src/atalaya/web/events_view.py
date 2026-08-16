@@ -181,7 +181,10 @@ def doubtful_events(db: Session, f: EventFilters, lang: str = "es",
             "motivo": v.get("motivo"),
             "actual": ev.category,
         })
-    out.sort(key=lambda d: d["confianza"] if d["confianza"] is not None else 0)
+    # Primero lo que exige una decisión del analista (confianza más baja
+    # arriba); al final los veredictos sin confianza declarada, que no se
+    # arreglan decidiendo sino volviendo a pasar el clasificador.
+    out.sort(key=lambda d: (d["confianza"] is None, d["confianza"] or 0))
     return out
 
 

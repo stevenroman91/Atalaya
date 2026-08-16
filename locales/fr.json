@@ -194,5 +194,6 @@
   "doubt_proposal": "Proposition du modèle",
   "doubt_why": "Motif",
   "doubt_confidence": "confiance",
-  "doubt_noconf": "confiance non déclarée"
+  "doubt_noconf": "confiance non déclarée",
+  "doubt_stale": "{n} de ces verdicts sont antérieurs au seuil : leur certitude n'a jamais été déclarée, ils sont donc affichés par prudence. Ils ne se règlent pas en tranchant, mais en repassant le classificateur."
 }

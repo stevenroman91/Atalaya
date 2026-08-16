@@ -194,5 +194,6 @@
   "doubt_proposal": "Model proposal",
   "doubt_why": "Reason",
   "doubt_confidence": "confidence",
-  "doubt_noconf": "confidence not stated"
+  "doubt_noconf": "confidence not stated",
+  "doubt_stale": "{n} of these verdicts predate the threshold: nobody stated their confidence, so they are shown out of caution. Deciding does not clear them — re-running the classifier does."
 }
