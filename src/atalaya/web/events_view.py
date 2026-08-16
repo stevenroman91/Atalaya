@@ -3,8 +3,9 @@ usuario, localización (traducciones en cache) y serialización para plantillas,
 mapa y exportes."""
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta, timezone
+from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import or_, select
@@ -134,6 +135,52 @@ def counters(db: Session, f: EventFilters) -> dict:
         bc = out["by_country"].setdefault(ev.country, {"alerts": 0, "notes": 0})
         bc["alerts" if ev.event_type == "ALERTA" else "notes"] += 1
     return out
+
+
+def counts_by_country(db: Session, f: EventFilters) -> dict[str, int]:
+    """Nº de eventos por país con TODOS los filtros vigentes menos el país.
+
+    Alimenta las pestañas: el analista debe ver de un vistazo dónde hay algo
+    antes de hacer clic, y no descubrir la pestaña vacía después.
+    """
+    from sqlalchemy import func
+
+    sin_pais = replace(f, countries=[])
+    stmt = (select(Event.country, func.count(Event.id))
+            .where(Event.status.in_(f.statuses), *_dim_conditions(sin_pais))
+            .group_by(Event.country))
+    if f.date_from:
+        stmt = stmt.where(Event.occurred_at >= f.date_from)
+    if f.date_to:
+        stmt = stmt.where(Event.occurred_at < f.date_to + timedelta(days=1))
+    return {code: n for code, n in db.execute(stmt)}
+
+
+def country_tabs(db: Session, f: EventFilters, query: dict,
+                 followed: list[str] | None = None) -> list[dict]:
+    """Pestañas por país. Los países seguidos por la cuenta primero, luego el
+    resto del perímetro — con su recuento, aunque estén fuera del perfil: ver
+    que Venezuela tiene 12 eventos es la única forma de pensar en mirarlos."""
+    counts = counts_by_country(db, f)
+    seguidos = list(followed if followed is not None else f.countries)
+
+    def href(code: str | None) -> str:
+        params = {k: v for k, v in query.items() if k not in ("country", "scope")}
+        if code:
+            params["country"] = code
+        else:
+            params["scope"] = "all"
+        return "/dashboard" + ("?" + urlencode(params) if params else "")
+
+    tabs = [{"code": None, "name": None, "count": sum(counts.values()),
+             "href": href(None), "active": not query.get("country")}]
+    ordenados = sorted(load_countries().items(),
+                       key=lambda kv: (kv[0] not in seguidos, kv[1].name))
+    for code, c in ordenados:
+        tabs.append({"code": code, "name": c.name, "count": counts.get(code, 0),
+                     "href": href(code), "followed": code in seguidos,
+                     "active": query.get("country") == code})
+    return tabs
 
 
 def timeline(db: Session, f: EventFilters, days: int = 7) -> list[dict]:

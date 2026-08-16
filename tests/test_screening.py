@@ -415,3 +415,80 @@ def test_un_articulo_de_seccion_internacional_no_produce_evento(db):
     art = db.scalar(select(Article))
     assert art.status == ArticleStatus.rejected.value
     assert "internacional" in art.reject_reason
+
+
+# ── pestañas por país y cobertura ────────────────────────────────────────
+# «Même si on a dans notre profil tous les pays, dans le panel il pourrait y
+# avoir un onglet par pays» — y, sur le même reproche: par pays on ne voyait
+# pas quels sites avaient été visités, lesquels avaient donné quelque chose
+# et lesquels étaient à vérifier à la main.
+
+def _admin_client(db, countries=("MX",)):
+    import os
+
+    from fastapi.testclient import TestClient
+
+    from atalaya.db.models import User
+    from atalaya.web import auth
+    from atalaya.web.app import app
+
+    os.environ["ATALAYA_ADMIN_EMAIL"] = "admin@example.org"
+    os.environ["ATALAYA_ADMIN_PASSWORD"] = "admin-password-123"
+    auth.create_admin_from_env(db)
+    admin = db.scalar(select(User).where(User.email == "admin@example.org"))
+    admin.countries = list(countries)
+    db.commit()
+    client = TestClient(app)
+    cookie = client.post("/auth/login",
+                         data={"email": "admin@example.org",
+                               "password": "admin-password-123"},
+                         follow_redirects=False).cookies
+    return client, cookie
+
+
+def test_las_pestanas_cuentan_los_paises_fuera_del_perfil(db):
+    """Ver que Brasil tiene eventos es la única forma de pensar en mirarlo."""
+    from atalaya.web.events_view import EventFilters, country_tabs
+
+    run = _run(db)
+    _viejo(db, run, "Tiroteio deixa dois feridos no centro", country="BR",
+           urls=("https://g1.globo.com/rj/noticia/tiroteio-centro/",))
+    db.commit()
+
+    f = EventFilters(countries=["MX"],
+                     statuses=[EventStatus.published.value])
+    tabs = country_tabs(db, f, {}, followed=["MX"])
+
+    br = next(t for t in tabs if t["code"] == "BR")
+    assert br["count"] == 1          # se cuenta aunque no esté en el perfil
+    assert br["followed"] is False
+    assert br["href"] == "/dashboard?country=BR"
+    assert tabs[0]["code"] is None and tabs[0]["active"] is True
+
+
+def test_la_cobertura_marca_las_fuentes_a_revisar_a_mano(db):
+    from atalaya.db.models import SourceRecord
+
+    db.add(SourceRecord(domain="milenio.com", name="Milenio",
+                        consecutive_failures=3, last_error="403",
+                        probe_note="portada inalcanzable"))
+    db.commit()
+
+    client, cookie = _admin_client(db)
+    page = client.get("/admin/cobertura", cookies=cookie)
+
+    assert page.status_code == 200
+    assert "Milenio" in page.text
+    assert "cov-inalcanzable" in page.text     # destacada en cabeza de tabla
+
+
+def test_una_fuente_que_produjo_articulos_sale_como_produce(db):
+    run = _run(db)
+    _article(db, run, country="MX", domain="eluniversal.com.mx",
+             url="https://www.eluniversal.com.mx/estados/balacera/")
+    db.commit()
+
+    client, cookie = _admin_client(db)
+    page = client.get("/admin/cobertura", cookies=cookie)
+
+    assert "cov-produce" in page.text

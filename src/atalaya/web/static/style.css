@@ -234,6 +234,32 @@ legend { font-size: .85rem; font-weight: 600; color: var(--text-2); padding: 0 .
 .counter.note .num { color: var(--note-text); }
 .counter.pending .num { color: var(--warn-text); }
 
+/* ---------- pestañas por país ---------- */
+.tabs {
+  display: flex; flex-wrap: wrap; gap: .3rem;
+  border-bottom: 1px solid var(--border); margin-bottom: 1.1rem;
+}
+.tabs .tab {
+  display: inline-flex; align-items: baseline; gap: .4rem;
+  padding: .45rem .8rem; border-radius: 8px 8px 0 0;
+  font-size: .88rem; font-weight: 550; color: var(--text-2);
+  text-decoration: none; border: 1px solid transparent; border-bottom: none;
+  margin-bottom: -1px;
+}
+.tabs .tab:hover { background: var(--panel-2); color: var(--text); }
+.tabs .tab.on {
+  background: var(--panel); border-color: var(--border);
+  color: var(--text); box-shadow: var(--shadow);
+}
+/* Fuera del perfil de la cuenta: visible, pero claramente secundario. */
+.tabs .tab.faint { color: var(--muted); font-weight: 450; }
+.tabs .tab .n {
+  font-size: .74rem; font-variant-numeric: tabular-nums;
+  color: var(--muted); background: var(--panel-2);
+  border-radius: 999px; padding: .05rem .38rem;
+}
+.tabs .tab.on .n { background: var(--accent); color: var(--accent-ink); }
+
 /* ---------- filtros ---------- */
 .filters {
   background: var(--panel); border: 1px solid var(--border);
@@ -383,6 +409,31 @@ th {
 tbody tr:hover { background: var(--panel-2); }
 tr.inactive { opacity: .5; }
 tr.failing td { color: var(--alert-text); }
+
+/* ---------- cobertura por país ---------- */
+.tag {
+  display: inline-block; font-size: .7rem; padding: .05rem .4rem;
+  border: 1px solid var(--border-strong); border-radius: 999px;
+  color: var(--text-2); white-space: nowrap;
+}
+.tag.ok { color: var(--ok-text); border-color: var(--ok-text); }
+.tag.warn { color: var(--warn-text); border-color: var(--warn-text); }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .74rem; }
+.muted { color: var(--muted); }
+.small { font-size: .74rem; }
+td.num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.dot {
+  display: inline-block; width: .55rem; height: .55rem; border-radius: 50%;
+  margin-right: .3rem; background: var(--muted);
+}
+.dot-produce { background: var(--ok-text); }
+.dot-filtrado { background: var(--note); }
+.dot-sin_material { background: var(--warn); }
+.dot-sin_datos { background: var(--muted); }
+.dot-inalcanzable { background: var(--alert); }
+/* Lo que hay que mirar a mano no debe poder pasar desapercibido. */
+tr.cov-inalcanzable td:first-child { box-shadow: inset 3px 0 0 var(--alert); }
+tr.cov-sin_datos td:first-child { box-shadow: inset 3px 0 0 var(--muted); }
 
 /* ---------- admin ---------- */
 .invitelink {

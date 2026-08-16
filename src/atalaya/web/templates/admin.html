@@ -89,6 +89,7 @@
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <button type="submit" class="button secondary">{{ t('admin_probe_all') }}</button>
     </form>
+    <a href="/admin/cobertura" class="button secondary">{{ t('admin_coverage') }}</a>
     {% if collect_running %}
     <form method="post" action="/admin/collect-cancel" class="inline">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

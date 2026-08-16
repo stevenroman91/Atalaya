@@ -12,6 +12,18 @@
   {% endfor %}
 </div>
 
+{# Pestañas por país: el perfil sigue varios países a la vez, pero se
+   trabaja de uno en uno. El recuento va en la pestaña para no abrir una
+   vacía; los países fuera del perfil siguen visibles, atenuados. #}
+<nav class="tabs" aria-label="{{ t('country') }}">
+  {% for tab in tabs %}
+  <a href="{{ tab.href }}"
+     class="tab{{ ' on' if tab.active }}{{ '' if tab.code is none or tab.followed else ' faint' }}">
+    {{ tab.name or t('all') }}<span class="n">{{ tab.count }}</span>
+  </a>
+  {% endfor %}
+</nav>
+
 <details class="filters" {{ 'open' if query else '' }}>
   <summary>{{ t('filters') }}</summary>
   <form method="get" action="/dashboard" class="filterform">
