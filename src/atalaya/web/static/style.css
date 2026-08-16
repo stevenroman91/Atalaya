@@ -421,3 +421,14 @@ tr.failing td { color: var(--alert-text); }
 .mini-item { margin: .7rem 0; padding-left: .8rem; border-left: 3px solid var(--border-strong); }
 .mini-item p { margin: .2rem 0; font-size: .88rem; color: var(--text-2); }
 .mini-item .meta { font-size: .78rem; color: var(--muted); }
+
+/* Resultado del diagnóstico de una fuente, junto a su fila */
+.probe-result {
+  margin-top: .35rem;
+  padding: .4rem .55rem;
+  border-left: 3px solid #3b6ea5;
+  background: rgba(59, 110, 165, .07);
+  font-size: .8rem;
+  line-height: 1.35;
+}
+button.small { padding: .2rem .5rem; font-size: .75rem; }

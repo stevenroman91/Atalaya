@@ -16,6 +16,8 @@ from sqlalchemy import func
 from atalaya.config import load_schedule
 from atalaya.db.models import Article, CollectRun, Invitation, SourceRecord, User
 from atalaya.web import auth as auth_layer
+from urllib.parse import quote_plus
+
 from atalaya.web.deps import check_csrf, get_db, render, require_admin
 
 router = APIRouter(prefix="/admin")
@@ -26,7 +28,8 @@ log = logging.getLogger(__name__)
 
 @router.get("")
 def admin_home(request: Request, invite_link: str | None = None, error: str | None = None,
-               notice: str | None = None,
+               notice: str | None = None, probe: str | None = None,
+               probe_msg: str | None = None,
                user_sess=Depends(require_admin), db: Session = Depends(get_db)):
     user, sess = user_sess
     invitations = list(db.scalars(select(Invitation).order_by(desc(Invitation.created_at)).limit(50)))
@@ -47,7 +50,7 @@ def admin_home(request: Request, invite_link: str | None = None, error: str | No
                   invitations=invitations, users=users, sources=sources,
                   runs=runs, invite_link=invite_link, error=error, notice=notice,
                   collect_running=active_run is not None, progress=progress,
-                  failing_threshold=alert_days)
+                  failing_threshold=alert_days, probe=probe, probe_msg=probe_msg)
 
 
 def _active_run_query():
@@ -84,6 +87,60 @@ async def collect_now(request: Request, user_sess=Depends(require_admin),
         return RedirectResponse("/admin?notice=running", status_code=303)
     _collect_in_background("daily")
     return RedirectResponse("/admin?notice=started", status_code=303)
+
+
+@router.post("/probe-home")
+async def probe_home(request: Request, user_sess=Depends(require_admin),
+                     db: Session = Depends(get_db)):
+    """¿Qué daría leer la portada de una fuente sin flujo? Mide, no escribe.
+
+    Existe porque la lectura de portada se programó sin poder verla nunca:
+    el entorno de desarrollo no tiene salida a internet. Este botón mira la
+    página de verdad y devuelve números — cuántos enlaces, cuántos parecen
+    artículos, cuántos sobreviven al filtro de sección — para decidir con
+    datos si vale la pena encenderla. No toca la base ni la salud de la
+    fuente: es una consulta, no una colecta.
+    """
+    await check_csrf(request, user_sess)
+    form = await request.form()
+    domain = (form.get("domain") or "").strip()
+    if not domain:
+        return RedirectResponse("/admin", status_code=303)
+
+    from atalaya.collect.collector import Collector
+    from atalaya.collect.fetcher import PoliteFetcher
+    from atalaya.collect.whitelist import norm_domain, off_topic_section
+
+    d = norm_domain(domain)
+    resp = PoliteFetcher().get(f"https://{d}/")
+    if not resp:
+        return RedirectResponse(
+            f"/admin?probe={quote_plus(d)}&probe_msg="
+            f"{quote_plus('portada inalcanzable (robots.txt lo impide o el sitio no responde)')}",
+            status_code=303)
+
+    base = str(getattr(resp, "url", "") or f"https://{d}/")
+    html = resp.text or ""
+    anchors = len(Collector._LINK_RE.findall(html))
+    links = Collector._article_links_from_html(base, html, norm_domain(base))
+    useful = [(u, t) for u, t in links if not off_topic_section(u)]
+    # Encontrar artículos manda sobre el recuento bruto: una portada sobria
+    # con 4 enlaces útiles vale más que una con 200 de navegación.
+    if not links and anchors < 10:
+        verdict = ("casi sin enlaces en el HTML: portada construida por "
+                   "JavaScript — leerla no aportaría nada")
+    elif not links:
+        verdict = (f"{anchors} enlaces, pero ninguno con forma de artículo: "
+                   "sus URL no encajan con el filtro")
+    elif not useful:
+        verdict = (f"{len(links)} artículos, todos en secciones ajenas a la "
+                   "vigilancia")
+    else:
+        verdict = (f"{anchors} enlaces · {len(links)} con forma de artículo · "
+                   f"{len(useful)} pertinentes. Ejemplo: «{useful[0][1][:70]}»")
+    return RedirectResponse(
+        f"/admin?probe={quote_plus(d)}&probe_msg={quote_plus(verdict)}",
+        status_code=303)
 
 
 @router.post("/collect-cancel")
