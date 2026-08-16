@@ -197,6 +197,12 @@ def reclassify_events(db: Session, limit: int = 200) -> dict:
         if not veredicto:
             continue
         ev.score_detail = {**(ev.score_detail or {}), "clasificador": veredicto}
+        # «Pendiente de corroboración» sobre un hecho que el modelo declara
+        # ajeno a la seguridad es una contradicción en la misma tarjeta: no
+        # hay nada que corroborar. Pasa a nota publicada — sigue visible.
+        if (not veredicto.get("es_seguridad")
+                and ev.status == EventStatus.pending_confirm.value):
+            ev.status = EventStatus.published.value
         categoria = veredicto["categoria"]
         tipo = classify_type(categoria, (ev.score_detail or {}).get("severity", {}))
         if (categoria, tipo) != (ev.category, ev.event_type):
@@ -402,6 +408,10 @@ def process_daily(db: Session, run: CollectRun, countries_filter: list[str] | No
                 category = veredicto["categoria"]
                 etype = classify_type(category, result.reasons["severity"])
                 result.reasons["clasificador"] = veredicto
+                if (not veredicto.get("es_seguridad")
+                        and status == EventStatus.pending_confirm.value):
+                    # nada que corroborar en un hecho ajeno a la seguridad
+                    status = EventStatus.published.value
 
             recommendations = (
                 build_recommendations(category, place,

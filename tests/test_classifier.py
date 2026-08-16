@@ -232,3 +232,55 @@ def test_un_choque_en_ruta_es_un_accidente():
                 text="Un joven murió el jueves en un choque en la ruta nacional 19.",
                 country="AR", lang="es")
     assert classify_category(Cluster(articles=[a]), "es") == "accidente"
+
+
+def test_un_hecho_ajeno_no_queda_pendiente_de_corroborar(db, veredictos):
+    """«Pendiente de corroboración» sobre un hecho declarado ajeno a la
+    seguridad es una contradicción en la misma tarjeta: no hay nada que
+    corroborar. Salió así en el panel del 16/08."""
+    from atalaya.db.models import EventStatus
+    from atalaya.process.pipeline import reclassify_events
+
+    run = _run(db)
+    ev = Event(run_id=run.id, dedup_key="k-virgen", country="VE",
+               title_es="Diócesis anuncia la agenda de la Virgen de Coromoto",
+               summary_es="El obispo indicó que la Iglesia orientará las jornadas.",
+               summary_version="v", event_type="ALERTA",
+               category="desastre_natural", level="advertencia",
+               status=EventStatus.pending_confirm.value,
+               recurrence=1, independent_sources=1, has_state_media=False)
+    db.add(ev)
+    db.commit()
+
+    reclassify_events(db)
+
+    db.refresh(ev)
+    assert ev.category == "no_securitario"
+    assert ev.status == EventStatus.published.value   # ya no «a confirmar»
+
+
+def test_una_respuesta_truncada_no_se_intenta_parsear(monkeypatch):
+    """Log real: «Unterminated string starting at: line 1 column 2» — el JSON
+    cortado a 300 tokens. El mensaje debe decir la causa, no el síntoma."""
+    import sys
+
+    from atalaya.process import classifier as c
+
+    monkeypatch.setattr(c, "backend", lambda: "claude")
+
+    class _Resp:
+        stop_reason = "max_tokens"
+        content = [type("B", (), {"type": "text", "text": '{"es_seg'})()]
+
+    class _Cliente:
+        class messages:
+            @staticmethod
+            def create(**kw):
+                assert kw["max_tokens"] >= 1024
+                return _Resp()
+
+    sys.modules["anthropic"] = type("m", (), {"Anthropic": lambda: _Cliente()})
+    try:
+        assert c.classify("t", "s", "México") is None
+    finally:
+        sys.modules.pop("anthropic", None)

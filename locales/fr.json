@@ -182,5 +182,6 @@
   "admin_reclassify": "Reclasser avec le modèle",
   "admin_reclassifying": "Reclassement lancé : le modèle repasse le panneau. Une minute, puis recharge.",
   "admin_no_classifier": "Le classificateur est éteint : ANTHROPIC_API_KEY manque, ou classifier.enabled est à false dans config/schedule.yaml.",
-  "admin_reclassify_hint": "« Reclasser avec le modèle » demande au classificateur si chaque événement du panneau est un fait de sécurité et de quel type. Rien n'est supprimé : ce qui est hors sujet descend en note avec son motif affiché."
+  "admin_reclassify_hint": "« Reclasser avec le modèle » demande au classificateur si chaque événement du panneau est un fait de sécurité et de quel type. Rien n'est supprimé : ce qui est hors sujet descend en note avec son motif affiché.",
+  "cat_no_securitario": "hors du champ de la sécurité"
 }

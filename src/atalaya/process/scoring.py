@@ -172,10 +172,11 @@ def classify_type(category: str, sev: dict) -> str:
     # unas recomendaciones — pero ambos siguen visibles en el panel.
     if category in ("sin_clasificar", NO_SECURITARIO):
         return "NOTA"
-    if sev.get("extreme") and category not in ("crimen_alto_impacto", "crimen_bajo_impacto",
-                                               "desastre_natural"):
-        return "NOTA"
+    # «Decretan toque de queda en Antón y Río Hato por homicidios» salía en
+    # nota informativa: la gravedad extrema descartaba la alerta para todo lo
+    # que no fuera crimen o desastre. Un toque de queda es justamente lo que
+    # cambia la conducta de una delegación sur le terrain.
     if category in ("crimen_alto_impacto", "crimen_bajo_impacto", "desastre_natural",
-                    "manifestacion", "accidente"):
+                    "manifestacion", "accidente", "operacion_seguridad"):
         return "ALERTA"
     return "NOTA"

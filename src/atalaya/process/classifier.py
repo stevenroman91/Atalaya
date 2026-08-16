@@ -118,7 +118,9 @@ def classify(title: str, summary: str | None, country_name: str) -> dict | None:
     try:
         response = anthropic.Anthropic().messages.create(
             model=model,
-            max_tokens=300,
+            # 300 truncaba el JSON a media frase: «Unterminated string».
+            # El motivo cabe en 160 caracteres, pero el modelo razona antes.
+            max_tokens=1024,
             output_config={"format": {"type": "json_schema", "schema": _SCHEMA}},
             system=_SYSTEM,
             messages=[{"role": "user",
@@ -126,6 +128,11 @@ def classify(title: str, summary: str | None, country_name: str) -> dict | None:
         )
         if response.stop_reason == "refusal":
             log.warning("clasificación rechazada: %s", title[:80])
+            return None
+        if response.stop_reason == "max_tokens":
+            # un JSON cortado no se parsea: mejor decirlo que dejar que
+            # falle en json.loads con un mensaje incomprensible
+            log.warning("clasificación truncada por max_tokens: %s", title[:80])
             return None
         text = next(b.text for b in response.content if b.type == "text")
         verdict = json.loads(text)

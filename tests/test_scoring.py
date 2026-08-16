@@ -87,7 +87,11 @@ def test_classification():
     assert classify_level(cl2, "es") == "advertencia"
     assert classify_category(cl2, "es") == "crimen_bajo_impacto"
 
-    assert classify_type("operacion_seguridad", {"extreme": []}) == "NOTA"
+    # Cambiado con motivo: «Decretan toque de queda en Antón y Río Hato por
+    # homicidios» salía en nota informativa. Un operativo o un toque de queda
+    # es justo lo que cambia la conducta de una delegación sobre el terreno,
+    # y tenemos plantillas de recomendación para esta categoría.
+    assert classify_type("operacion_seguridad", {"extreme": []}) == "ALERTA"
 
 
 def test_divergence_sentence():
