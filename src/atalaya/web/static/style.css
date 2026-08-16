@@ -515,3 +515,16 @@ details.coverage > summary::-webkit-details-marker { display: none; }
 details.coverage > summary::before { content: "▸ "; color: var(--muted); }
 details.coverage[open] > summary::before { content: "▾ "; }
 details.coverage .warn-sum { color: var(--warn-text); font-weight: 600; }
+
+/* La cobertura ocupa el ancho completo, bajo la rejilla: es una tabla con
+   cuatro columnas y listas de URL. Metida en la columna lateral de 340 px
+   quedaba ilegible — cada celda en tres líneas y los enlaces cortados. */
+details.coverage {
+  margin-top: 1.1rem;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: .8rem 1.1rem;
+}
+details.coverage > summary { font-size: .95rem; }
+details.coverage table { font-size: .84rem; }
+details.coverage td.links { min-width: 240px; }

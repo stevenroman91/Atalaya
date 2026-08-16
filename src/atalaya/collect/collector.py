@@ -725,7 +725,7 @@ class Collector:
             return
         kws = load_keywords()["daily"]
         words = kws.get(country.lang, kws["es"])
-        url = (f"{cfg['url']}?query={quote_plus(gdelt_query(country.name, words))}"
+        url = (f"{cfg['url']}?query={quote_plus(gdelt_query(country.name, words, country.lang))}"
                f"&mode=artlist&format=json&sort=datedesc"
                f"&maxrecords={int(cfg.get('max_records', 60))}"
                f"&timespan={cfg.get('timespan', '1d')}")

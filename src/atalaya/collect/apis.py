@@ -73,16 +73,26 @@ def country_from_place(place: str) -> str | None:
 
 # ── GDELT 2.0 Doc API ────────────────────────────────────────────────────
 
-def gdelt_query(country_name: str, keywords: list[str]) -> str:
+def gdelt_query(country_name: str, keywords: list[str], lang: str = "es") -> str:
     """Consulta GDELT: el hecho debe ocurrir en el país, no solo mencionarlo.
 
     `sourcecountry:` filtra por el país del MEDIO, que es justo el error que
     llevamos toda la semana corrigiendo. Se usa el nombre del país como
     término de búsqueda y se deja que nuestros propios filtros de perímetro
     hagan el trabajo fino después.
+
+    La lengua sí se fija. Sin ella, la primera prueba real devolvió «Head to
+    Head Analysis : FIBRA Macquarie México & Its Rivals» — boletines
+    bursátiles en inglés que mencionan México de pasada. No son prensa
+    local, y su texto no es resumible en español de forma extractiva.
     """
     terms = " OR ".join(f'"{k}"' for k in keywords[:8])
-    return f'({terms}) "{country_name}"'
+    idioma = _GDELT_LANGS.get(lang, "spanish")
+    return f'({terms}) "{country_name}" sourcelang:{idioma}'
+
+
+# GDELT nombra las lenguas en inglés, no en ISO.
+_GDELT_LANGS = {"es": "spanish", "pt": "portuguese"}
 
 
 def parse_gdelt(payload: dict) -> list[dict]:

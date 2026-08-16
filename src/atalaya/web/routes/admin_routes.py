@@ -176,8 +176,17 @@ def probe_api(key: str, cfg: dict, fetcher=None) -> tuple[bool, str]:
         return False, "sin URL configurada"
     kind = cfg.get("kind")
     if kind == "gdelt_doc":
-        url = (f"{url}?query=%22M%C3%A9xico%22&mode=artlist&format=json"
-               f"&maxrecords=5&timespan=1d")
+        # la consulta de verdad, no una simplificada: probar otra cosa que
+        # lo que se usará no prueba nada. Con la simplificada el ejemplo
+        # devuelto era un boletín bursátil en inglés.
+        from urllib.parse import quote_plus
+
+        from atalaya.collect.apis import gdelt_query
+        from atalaya.config import load_keywords
+
+        kws = load_keywords()["daily"]["es"]
+        url = (f"{url}?query={quote_plus(gdelt_query('México', kws, 'es'))}"
+               f"&mode=artlist&format=json&maxrecords=5&timespan=1d")
     f = fetcher or PoliteFetcher()
     resp = f.get(url, retries=2)      # GDELT corta la conexión de vez en cuando
     if not resp:

@@ -134,72 +134,73 @@
         <span><span class="dot notes"></span>{{ t('notes_label') }}</span>
       </div>
     </div>
-    {# Cobertura: no una página aparte —eso duplicaba pestañas y filtros—
-       sino una sección al pie, sobre los mismos filtros que la lista. #}
-    {% for b in cobertura %}
-    <details class="panel coverage" {{ 'open' if b.revisar and cobertura|length == 1 }}>
-      <summary>
-        <strong>{{ t('cov_title') }} — {{ b.name }}</strong>
-        <span class="muted small">
-          {{ b.produce }}/{{ b.total }} {{ t('cov_producing') }} ·
-          {{ b.kept }} {{ t('cov_kept_n') }}{% if b.revisar %} ·
-          <span class="warn-sum">{{ b.revisar }} {{ t('cov_to_check') }}</span>{% endif %}
-        </span>
-      </summary>
-      <p class="section-hint">{{ t('cov_hint', hours=window_hours) }}</p>
-      <div class="tablewrap"><table>
-        <thead><tr>
-          <th>{{ t('cov_source') }}</th><th>{{ t('cov_feed') }}</th>
-          <th>{{ t('cov_state') }}</th><th>{{ t('cov_links') }}</th>
-        </tr></thead>
-        <tbody>
-        {% for r in b.rows %}
-        <tr class="cov cov-{{ r.estado }}">
-          <td><strong>{{ r.name }}</strong><br>
-            <a href="{{ r.home }}" class="mono" target="_blank" rel="noopener">{{ r.domain }}</a>
-            <span class="tag">{{ r.type }}</span></td>
-          <td>{% if r.rss %}<a href="{{ r.rss }}" class="tag ok" target="_blank" rel="noopener">{{ t('cov_feed_' + r.rss_origen) }}</a>
-              {% else %}<span class="tag warn">{{ t('cov_no_feed') }}</span>{% endif %}</td>
-          <td><span class="dot dot-{{ r.estado }}" aria-hidden="true"></span>
-            {{ t('cov_st_' + r.estado) }}
-            <br><span class="muted small">{{ r.detalle }}</span>
-            {% if r.probe_note %}<br><span class="muted small">{{ r.probe_note }}{% if r.probe_at %} ({{ r.probe_at.strftime('%m-%d %H:%M') }}){% endif %}</span>{% endif %}</td>
-          <td class="links">
-            {% if r.articulos %}
-            <details><summary>{{ r.kept }} {{ t('cov_read') }}</summary>
-              <ul class="urllist">
-              {% for a in r.articulos %}
-              <li><a href="{{ a.url }}" target="_blank" rel="noopener">{{ a.title[:110] }}</a></li>
-              {% endfor %}
-              </ul>
-            </details>
-            {% endif %}
-            {% if r.descartados %}
-            <details><summary class="warn-sum">{{ r.rejected }} {{ t('cov_dropped') }}</summary>
-              <ul class="urllist">
-              {% for a in r.descartados %}
-              <li><a href="{{ a.url }}" target="_blank" rel="noopener">{{ a.title[:110] }}</a>
-                  <br><span class="muted small">{{ a.reason or '—' }}</span></li>
-              {% endfor %}
-              </ul>
-            </details>
-            {% endif %}
-            {% if not r.articulos and not r.descartados %}
-            <span class="muted small">{{ t('cov_nothing') }}</span>
-            {% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-        </tbody>
-      </table></div>
-    </details>
-    {% endfor %}
     <div class="panel exportrow">
       <a class="button" href="/dashboard/briefing?format=pdf">{{ t('export_pdf') }} (PDF)</a>
       <a class="button secondary" href="/dashboard/briefing" target="_blank">HTML</a>
     </div>
   </aside>
 </div>
+
+{# Cobertura: no una página aparte —eso duplicaba pestañas y filtros—
+   sino una sección al pie, sobre los mismos filtros que la lista. #}
+{% for b in cobertura %}
+<details class="panel coverage" {{ 'open' if b.revisar and cobertura|length == 1 }}>
+  <summary>
+    <strong>{{ t('cov_title') }} — {{ b.name }}</strong>
+    <span class="muted small">
+      {{ b.produce }}/{{ b.total }} {{ t('cov_producing') }} ·
+      {{ b.kept }} {{ t('cov_kept_n') }}{% if b.revisar %} ·
+      <span class="warn-sum">{{ b.revisar }} {{ t('cov_to_check') }}</span>{% endif %}
+    </span>
+  </summary>
+  <p class="section-hint">{{ t('cov_hint', hours=window_hours) }}</p>
+  <div class="tablewrap"><table>
+    <thead><tr>
+      <th>{{ t('cov_source') }}</th><th>{{ t('cov_feed') }}</th>
+      <th>{{ t('cov_state') }}</th><th>{{ t('cov_links') }}</th>
+    </tr></thead>
+    <tbody>
+    {% for r in b.rows %}
+    <tr class="cov cov-{{ r.estado }}">
+      <td><strong>{{ r.name }}</strong><br>
+        <a href="{{ r.home }}" class="mono" target="_blank" rel="noopener">{{ r.domain }}</a>
+        <span class="tag">{{ r.type }}</span></td>
+      <td>{% if r.rss %}<a href="{{ r.rss }}" class="tag ok" target="_blank" rel="noopener">{{ t('cov_feed_' + r.rss_origen) }}</a>
+          {% else %}<span class="tag warn">{{ t('cov_no_feed') }}</span>{% endif %}</td>
+      <td><span class="dot dot-{{ r.estado }}" aria-hidden="true"></span>
+        {{ t('cov_st_' + r.estado) }}
+        <br><span class="muted small">{{ r.detalle }}</span>
+        {% if r.probe_note %}<br><span class="muted small">{{ r.probe_note }}{% if r.probe_at %} ({{ r.probe_at.strftime('%m-%d %H:%M') }}){% endif %}</span>{% endif %}</td>
+      <td class="links">
+        {% if r.articulos %}
+        <details><summary>{{ r.kept }} {{ t('cov_read') }}</summary>
+          <ul class="urllist">
+          {% for a in r.articulos %}
+          <li><a href="{{ a.url }}" target="_blank" rel="noopener">{{ a.title[:110] }}</a></li>
+          {% endfor %}
+          </ul>
+        </details>
+        {% endif %}
+        {% if r.descartados %}
+        <details><summary class="warn-sum">{{ r.rejected }} {{ t('cov_dropped') }}</summary>
+          <ul class="urllist">
+          {% for a in r.descartados %}
+          <li><a href="{{ a.url }}" target="_blank" rel="noopener">{{ a.title[:110] }}</a>
+              <br><span class="muted small">{{ a.reason or '—' }}</span></li>
+          {% endfor %}
+          </ul>
+        </details>
+        {% endif %}
+        {% if not r.articulos and not r.descartados %}
+        <span class="muted small">{{ t('cov_nothing') }}</span>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</details>
+{% endfor %}
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="/static/dashboard.js"></script>

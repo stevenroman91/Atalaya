@@ -80,6 +80,14 @@ def test_gdelt_no_filtra_por_pais_del_medio():
     assert '"México"' in q
 
 
+def test_gdelt_se_limita_a_la_lengua_del_pais():
+    """Primera prueba real sin este filtro: «Head to Head Analysis : FIBRA
+    Macquarie México & Its Rivals» — boletines bursátiles en inglés que
+    nombran México de pasada. Ni prensa local, ni resumible en español."""
+    assert "sourcelang:spanish" in gdelt_query("México", ["homicidio"], "es")
+    assert "sourcelang:portuguese" in gdelt_query("Brasil", ["homicídio"], "pt")
+
+
 def test_usgs_respeta_el_umbral_y_el_perimetro():
     items = parse_usgs(json.loads(USGS), min_magnitude=4.0)
     assert len(items) == 1                         # el 2.9 y el de Japón fuera
