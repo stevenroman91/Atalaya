@@ -34,3 +34,6 @@ collector:
   home_scrape: true
   parallel_workers: 4          # países en paralelo (1 = secuencial); la cortesía por host se mantiene
   source_failure_alert_days: 3 # fuente inalcanzable N días seguidos → visible en admin
+  # Cuánto se guarda la traza de los artículos descartados. Sirve al
+  # analista para discutir los filtros de estos días, no para siempre.
+  reject_retention_days: 30

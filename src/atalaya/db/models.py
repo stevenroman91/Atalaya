@@ -62,6 +62,41 @@ class SourceRecord(Base):
     probe_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class Reject(Base):
+    """Un artículo que NO entró, con el motivo. Traza, no papelera.
+
+    «Ne jamais écarter en silence» es la primera regla del proyecto y el
+    código no la cumplía: casi todos los rechazos ocurren ANTES de escribir
+    en base —un contador se movía, el artículo desaparecía—. El analista no
+    podía contradecir un filtro que no deja rastro, y nosotros no podíamos
+    responder por qué El Heraldo enseña 82 artículos pertinentes en su
+    portada y produce cero.
+
+    Tabla aparte y no un `Article` con estado «rechazado»: el UNIQUE de la
+    URL en artículos convertiría cada rechazo en un bloqueo permanente —un
+    artículo rechazado hoy por un filtro que corregimos mañana no volvería
+    a entrar nunca. Aquí no estorba nada.
+
+    Solo se guardan los rechazos POR CRITERIO (sección, perímetro, granja de
+    contenido): los que el analista puede discutir. Los mecánicos —sin
+    fecha, fuera de ventana— son ruido incontestable.
+    """
+    __tablename__ = "rejects"
+    __table_args__ = (
+        UniqueConstraint("url", name="uq_rejects_url"),
+        Index("ix_rejects_domain_country", "domain", "country"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    run_id: Mapped[int | None] = mapped_column(ForeignKey("collect_runs.id"))
+    url: Mapped[str] = mapped_column(String(2048))
+    domain: Mapped[str | None] = mapped_column(String(255))
+    title: Mapped[str | None] = mapped_column(Text)
+    reason: Mapped[str] = mapped_column(String(255))
+    country: Mapped[str | None] = mapped_column(String(2))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class ArticleStatus(str, enum.Enum):
     extracted = "extracted"        # texto íntegro disponible → puede resumirse
     title_only = "title_only"      # sin texto: solo se lista «título solamente»

@@ -20,7 +20,9 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from atalaya.config import load_apis, load_countries, load_sources
-from atalaya.db.models import Article, ArticleStatus, Event, EventStatus, SourceRecord
+from atalaya.db.models import (
+    Article, ArticleStatus, Event, EventStatus, Reject, SourceRecord,
+)
 
 WINDOW_HOURS = 24
 MAX_ARTICLES = 4000     # techo de seguridad de la consulta
@@ -67,8 +69,6 @@ def _verdict(rec: SourceRecord | None, kept: int, rejected: int) -> tuple[str, s
     return "sin_material", "responde, pero nada pertinente en la ventana"
 
 
-# Orden de lectura: primero lo que exige una decisión nuestra, al final lo
-# que funciona. `robots` va abajo del bloque de fallos: no hay nada que hacer.
 def api_rows(db: Session) -> list[dict]:
     """Estado de las API abiertas. Compartido con el panel de administración:
     quien pulsa «Probar las API» está en /admin y debe ver ahí el resultado,
@@ -97,6 +97,8 @@ def api_rows(db: Session) -> list[dict]:
     return out
 
 
+# Orden de lectura: primero lo que exige una decisión nuestra, al final lo
+# que funciona. `robots` va abajo del bloque de fallos: no hay nada que hacer.
 ORDER = {"dns": 0, "inalcanzable": 1, "bloqueada": 2, "tls": 3, "sin_datos": 4,
          "robots": 5, "sin_material": 6, "filtrado": 7, "produce": 8}
 # Lo que cuenta como «a revisar a mano»: solo lo accionable.
@@ -128,6 +130,18 @@ def coverage_blocks(db: Session, codes: list[str] | None = None) -> list[dict]:
             "url": art.url, "title": art.title,
             "reason": art.reject_reason,
             "at": art.fetched_at,
+        })
+
+    # Los rechazados que nunca llegaron a ser artículos: hasta ahora
+    # desaparecían sin dejar nada, y el desplegable «descartados» salía
+    # vacío en todas las fuentes. Son los que el analista puede discutir.
+    for rej in db.scalars(
+            select(Reject).where(Reject.created_at >= since)
+            .order_by(Reject.created_at.desc()).limit(MAX_ARTICLES)):
+        cubo = listas.setdefault((rej.domain or "", rej.country or ""), {})
+        cubo.setdefault("rejected", []).append({
+            "url": rej.url, "title": rej.title or rej.url,
+            "reason": rej.reason, "at": rej.created_at,
         })
 
     records = {r.domain: r for r in db.scalars(select(SourceRecord))}

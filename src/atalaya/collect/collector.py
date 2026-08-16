@@ -38,7 +38,9 @@ from atalaya.collect.whitelist import (
 from atalaya.config import (
     Country, Zone, load_apis, load_countries, load_keywords, load_schedule, load_sources,
 )
-from atalaya.db.models import Article, ArticleStatus, CollectRun, SourceRecord, utcnow
+from atalaya.db.models import (
+    Article, ArticleStatus, CollectRun, Reject, SourceRecord, utcnow,
+)
 
 log = logging.getLogger(__name__)
 
@@ -86,19 +88,47 @@ class Collector:
 
     # ── helpers ──────────────────────────────────────────────────────────
     def _reject(self, reason: str, *, title: str | None = None,
-                url: str | None = None) -> None:
+                url: str | None = None, run: CollectRun | None = None,
+                country: str | None = None) -> None:
         """Descarta una entrada. `title`/`url` para los rechazos de criterio.
 
         El analista filtra aguas abajo: lo que se descarta por juicio (sección,
         perímetro, granja de contenido) debe quedar rastreable para poder
         auditarlo, a diferencia de los rechazos mecánicos (sin fecha, fuera de
         ventana) que no aportan nada al leerlos.
+
+        Rastreable ya no significa «en el log»: significa en base, delante
+        del analista. Un motivo enterrado en los logs de Railway no se puede
+        contradecir, y contradecirnos es su trabajo.
         """
         self.stats["rejected"] += 1
         rr = self.stats["reject_reasons"]
         rr[reason] = rr.get(reason, 0) + 1
-        if title:
-            log.info("descartado [%s] %s — %s", reason, title[:120], url or "")
+        if not title:
+            return                      # rechazo mecánico: nada que discutir
+        log.info("descartado [%s] %s — %s", reason, title[:120], url or "")
+        if url:
+            self._persist_reject(reason, title=title, url=url, run=run,
+                                 country=country)
+
+    def _persist_reject(self, reason: str, *, title: str, url: str,
+                        run: CollectRun | None, country: str | None) -> None:
+        """Guarda la traza. Un fallo aquí nunca debe tumbar la colecta: es
+        una anotación al margen, no el trabajo."""
+        try:
+            with self.db.begin_nested():
+                self.db.add(Reject(
+                    run_id=run.id if run else None, url=url[:2048],
+                    domain=norm_domain(url), title=title[:500],
+                    reason=reason[:255], country=country))
+                self.db.flush()
+        except IntegrityError:
+            # ya rechazado antes (UNIQUE de la URL): se conserva el primer
+            # motivo. Reescribirlo en cada colecta sería una escritura por
+            # artículo descartado, todos los días, sin aportar nada.
+            pass
+        except Exception:
+            log.exception("no se pudo guardar la traza de rechazo de %s", url)
 
     def _source_record(self, domain: str, name: str) -> SourceRecord:
         rec = self.db.scalar(select(SourceRecord).where(SourceRecord.domain == domain))
@@ -466,7 +496,7 @@ class Collector:
         section = off_topic_section(link)
         if section:
             self._reject(f"sección ajena a la vigilancia: {section}",
-                         title=title, url=link)
+                         title=title, url=link, run=run, country=country.code)
             return False
 
         # §4 — el hecho debe ocurrir en el perímetro. La prensa nacional cubre
@@ -482,7 +512,8 @@ class Collector:
                 self.stats["reattributed"] = self.stats.get("reattributed", 0) + 1
             else:
                 self._reject(f"hecho localizado fuera del perímetro: {abroad}",
-                             title=title, url=link)
+                             title=title, url=link, run=run,
+                             country=country.code)
                 return False
 
         # Fecha del flujo: primer filtro de frescura (la fecha real del
@@ -516,7 +547,7 @@ class Collector:
         source = match_source(link)
         if source and not source.covers_country(country.code):
             self._reject(f"fuente {source.domain} no cubre {country.code}",
-                         title=title, url=link)
+                         title=title, url=link, run=run, country=country.code)
             return False
 
         # dedupe por URL canónica (idempotencia)
@@ -556,7 +587,8 @@ class Collector:
             # regla «solo corrobora, nunca funda» se aplica en el scoring
             if looks_like_content_farm(domain, title, text or ""):
                 self._reject(f"señales de granja de contenido: {domain}",
-                             title=title, url=link)
+                             title=title, url=link, run=run,
+                             country=country.code)
                 return False
             source_type = "off_whitelist"
             source_name = domain
@@ -565,7 +597,8 @@ class Collector:
             source_name = source.name
             if zone and not geo_filter_ok(source, country.code, title, text or "", zone.query_terms):
                 self._reject(f"fuente fuera de país sin mención de {country.code}",
-                             title=title, url=link)
+                             title=title, url=link, run=run,
+                             country=country.code)
                 return False
             self.mark_source(source.domain, source.name, ok=True)
 
@@ -684,7 +717,10 @@ class Collector:
                 titulo = (entry.get("title") or "")
                 code = perimeter_country_in(strip_site_suffix(titulo))
                 if code is None or code not in countries:
-                    self._reject("fuente regional sin país del perímetro en el titular")
+                    self._reject(
+                        "fuente regional sin país del perímetro en el titular",
+                        title=titulo, url=(entry.get("link") or "").strip() or None,
+                        run=run)
                     continue
                 self._ingest_entry(entry, run=run, country=countries[code],
                                    zone=None, keyword=None, theme=None,

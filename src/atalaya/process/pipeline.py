@@ -16,7 +16,7 @@ from atalaya.collect.whitelist import (
 )
 from atalaya.config import load_countries, load_schedule, zone_by_id
 from atalaya.db.models import (
-    Article, ArticleStatus, CollectRun, Event, EventArticle, EventStatus,
+    Article, ArticleStatus, CollectRun, Event, EventArticle, EventStatus, Reject,
 )
 from atalaya.process.cluster import Cluster, cluster_articles
 from atalaya.process.scoring import (
@@ -136,6 +136,25 @@ def _country_geo(code: str) -> tuple[float, float] | None:
     if country is None:
         return None
     return next((z.geo for z in country.zones if z.geo), None)
+
+
+def purge_rejects(db: Session, days: int | None = None) -> int:
+    """Borra las trazas de rechazo antiguas. Devuelve cuántas.
+
+    La traza sirve al analista para discutir los filtros de estos días, no
+    para siempre: sin poda, una tabla que crece con cada colecta acaba
+    pesando más que los propios artículos en una base modesta.
+    """
+    if days is None:
+        days = int(load_schedule().get("collector", {})
+                   .get("reject_retention_days", 30))
+    corte = datetime.now(timezone.utc) - timedelta(days=days)
+    n = db.query(Reject).filter(Reject.created_at < corte).delete(
+        synchronize_session=False)
+    db.commit()
+    if n:
+        log.info("purgadas %d trazas de rechazo anteriores a %s", n, corte.date())
+    return n
 
 
 def sweep_events(db: Session) -> dict:

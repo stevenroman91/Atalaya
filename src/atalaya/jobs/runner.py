@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from atalaya.collect.collector import Collector, RunCancelled
 from atalaya.collect.fetcher import PoliteFetcher
 from atalaya.db.models import CollectRun, utcnow
-from atalaya.process.pipeline import process_daily
+from atalaya.process.pipeline import process_daily, purge_rejects
 from atalaya.process.translate import translate_pending
 
 log = logging.getLogger(__name__)
@@ -44,6 +44,7 @@ def run_daily(db: Session, countries: list[str] | None = None,
         stats["collect"] = collector.collect_daily(run, countries)
         stats["process"] = process_daily(db, run, countries)
         stats["translate"] = translate_pending(db)
+        stats["rejects_purged"] = purge_rejects(db)
         _finish(db, run, stats)
     except RunCancelled:
         log.info("job diario anulado por el administrador")
