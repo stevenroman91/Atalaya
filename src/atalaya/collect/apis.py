@@ -73,7 +73,8 @@ def country_from_place(place: str) -> str | None:
 
 # ── GDELT 2.0 Doc API ────────────────────────────────────────────────────
 
-def gdelt_query(country_name: str, keywords: list[str], lang: str = "es") -> str:
+def gdelt_query(country_name: str, keywords: list[str], lang: str = "es",
+                langs: dict | None = None) -> str:
     """Consulta GDELT: el hecho debe ocurrir en el país, no solo mencionarlo.
 
     `sourcecountry:` filtra por el país del MEDIO, que es justo el error que
@@ -87,11 +88,14 @@ def gdelt_query(country_name: str, keywords: list[str], lang: str = "es") -> str
     local, y su texto no es resumible en español de forma extractiva.
     """
     terms = " OR ".join(f'"{k}"' for k in keywords[:8])
-    idioma = _GDELT_LANGS.get(lang, "spanish")
-    return f'({terms}) "{country_name}" sourcelang:{idioma}'
+    idioma = (langs or _GDELT_LANGS).get(lang)
+    filtro = f" sourcelang:{idioma}" if idioma else ""
+    return f'({terms}) "{country_name}"{filtro}'
 
 
-# GDELT nombra las lenguas en inglés, no en ISO.
+# Cómo nombra GDELT las lenguas. Editable en apis.yaml sin tocar código: no
+# tenemos forma de verificar su sintaxis desde el entorno de desarrollo, y
+# una consulta mal formada la rechaza con un texto en claro, no con JSON.
 _GDELT_LANGS = {"es": "spanish", "pt": "portuguese"}
 
 

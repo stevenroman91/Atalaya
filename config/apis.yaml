@@ -20,6 +20,15 @@ apis:
     max_records: 60
     timespan: "1d"
     # Solo aporta URLs: el texto lo extrae nuestro robot de la página real.
+    #
+    # Cómo nombra GDELT las lenguas. La primera prueba real devolvió un
+    # boletín bursátil en inglés, así que el filtro hace falta; pero su
+    # sintaxis exacta no se puede verificar desde el entorno de desarrollo.
+    # Se deja aquí para poder corregirla sin tocar código. Vaciar el valor
+    # (source_langs: {}) quita el filtro.
+    source_langs:
+      es: spanish
+      pt: portuguese
 
   usgs:
     enabled: true
@@ -41,7 +50,15 @@ apis:
     min_level: orange
 
   reliefweb:
-    enabled: true
+    # APAGADA. La prueba desde producción devolvió: «robots.txt del sitio
+    # nos lo prohíbe». No se negocia y no se sortea — es la primera de
+    # nuestras reglas no negociables, y vale igual para un endpoint de API
+    # que para una portada.
+    #
+    # Si GEOS quiere esta fuente, la vía legítima existe y no pasa por el
+    # código: pedir a OCHA una confirmación escrita de acceso programático.
+    # Con esa confirmación del operador, se vuelve a poner en true.
+    enabled: false
     kind: reliefweb_json
     name: "ReliefWeb (OCHA)"
     url: "https://api.reliefweb.int/v1/disasters"

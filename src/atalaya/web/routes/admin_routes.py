@@ -185,7 +185,7 @@ def probe_api(key: str, cfg: dict, fetcher=None) -> tuple[bool, str]:
         from atalaya.config import load_keywords
 
         kws = load_keywords()["daily"]["es"]
-        url = (f"{url}?query={quote_plus(gdelt_query('México', kws, 'es'))}"
+        url = (f"{url}?query={quote_plus(gdelt_query('México', kws, 'es', cfg.get('source_langs')))}"
                f"&mode=artlist&format=json&maxrecords=5&timespan=1d")
     f = fetcher or PoliteFetcher()
     resp = f.get(url, retries=2)      # GDELT corta la conexión de vez en cuando
@@ -200,7 +200,13 @@ def probe_api(key: str, cfg: dict, fetcher=None) -> tuple[bool, str]:
             items = parse_official(cfg, resp)
             muestra = items[0].title if items else ""
     except Exception as exc:
-        return False, f"respuesta no parseable: {type(exc).__name__}"
+        # El nombre de la excepción no dice nada accionable: «JSONDecodeError»
+        # significa que la API respondió 200 con algo que no es JSON, y lo
+        # único que resuelve es leer ESE algo. Las API rechazan una consulta
+        # mal formada con un texto en claro, no con un código.
+        cuerpo = " ".join((resp.text or "")[:300].split())
+        return False, (f"respuesta no parseable ({type(exc).__name__}). "
+                       f"Respondió: «{cuerpo}»")
 
     # Cero elementos NO es un fallo: significa que hoy no hay nada por encima
     # del umbral. Lo que se prueba es que la respuesta se parsea.

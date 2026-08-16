@@ -343,3 +343,29 @@ def test_el_diagnostico_y_la_colecta_usan_el_mismo_despacho():
 
     for key, cfg in load_apis().items():
         assert cfg["kind"] == "gdelt_doc" or cfg["kind"] in _OFICIALES, key
+
+
+# ── el filtro de lengua de GDELT, editable sin tocar código ──────────────
+# Su sintaxis no se puede verificar desde el entorno de desarrollo, y una
+# consulta mal formada la rechaza con un texto en claro, no con JSON. Vive
+# en apis.yaml para poder corregirla sin un despliegue de código.
+
+def test_el_token_de_lengua_viene_de_config():
+    q = gdelt_query("México", ["homicidio"], "es", {"es": "spa"})
+    assert "sourcelang:spa" in q
+
+
+def test_sin_mapa_de_lengua_no_hay_filtro():
+    """Vaciar source_langs quita el filtro en vez de romper la consulta."""
+    q = gdelt_query("México", ["homicidio"], "es", {})
+    assert "sourcelang" not in q
+    assert '"México"' in q
+
+
+def test_reliefweb_esta_apagada_por_robots_txt():
+    """No se negocia y no se sortea: la prueba real devolvió «robots.txt del
+    sitio nos lo prohíbe». Reactivarla exige una confirmación de OCHA, no un
+    cambio de código."""
+    from atalaya.config import load_apis
+
+    assert load_apis()["reliefweb"]["enabled"] is False
