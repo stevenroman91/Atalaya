@@ -29,7 +29,7 @@ log = logging.getLogger(__name__)
 @router.get("")
 def admin_home(request: Request, invite_link: str | None = None, error: str | None = None,
                notice: str | None = None, probe: str | None = None,
-               probe_msg: str | None = None,
+               probe_msg: str | None = None, swept: str | None = None,
                user_sess=Depends(require_admin), db: Session = Depends(get_db)):
     user, sess = user_sess
     invitations = list(db.scalars(select(Invitation).order_by(desc(Invitation.created_at)).limit(50)))
@@ -50,7 +50,8 @@ def admin_home(request: Request, invite_link: str | None = None, error: str | No
                   invitations=invitations, users=users, sources=sources,
                   runs=runs, invite_link=invite_link, error=error, notice=notice,
                   collect_running=active_run is not None, progress=progress,
-                  failing_threshold=alert_days, probe=probe, probe_msg=probe_msg)
+                  failing_threshold=alert_days, probe=probe, probe_msg=probe_msg,
+                  swept=swept)
 
 
 def _active_run_query():
@@ -150,6 +151,25 @@ def _probe_all_in_background() -> None:
                 job_db.commit()                               # visible al recargar
 
     threading.Thread(target=worker, daemon=True, name="probe-all").start()
+
+
+@router.post("/sweep")
+async def sweep(request: Request, user_sess=Depends(require_admin),
+                db: Session = Depends(get_db)):
+    """Repasa el panel con los filtros vigentes, sin recolectar.
+
+    Sin este botón, corregir un filtro obligaba a lanzar una colecta entera
+    —media hora— para ver el efecto. El barrido no toca la red: relee lo que
+    ya está en base y devuelve las cifras en el acto.
+    """
+    await check_csrf(request, user_sess)
+    from atalaya.process.pipeline import sweep_events
+
+    s = sweep_events(db)
+    msg = (f"{s['retired']} retirados · {s['reattributed']} reatribuidos · "
+           f"{s['geocoded']} geolocalizados")
+    return RedirectResponse(f"/admin?notice=swept&swept={quote_plus(msg)}",
+                            status_code=303)
 
 
 @router.post("/probe-all")

@@ -251,3 +251,40 @@ def test_evento_reatribuido_recibe_la_geo_de_su_pais_real(db):
     db.refresh(ev)
     assert ev.country == "VE"
     assert ev.lat is not None          # y no se queda huérfano del mapa
+
+
+# ── el barrido debe poder lanzarse solo, sin colecta ─────────────────────
+# Estaba enterrado en el tratamiento diario: corregir un filtro obligaba a
+# esperar una colecta entera (media hora) para ver el efecto.
+
+def test_el_barrido_funciona_sin_colectar(db):
+    from atalaya.process.pipeline import sweep_events
+
+    run = _run(db)
+    malo = _viejo(db, run, "Terremoto en Indonesia deja al menos 47 muertos")
+    bueno = _viejo(db, run, "Balacera deja dos heridos en el centro de Culiacán",
+                   urls=("https://www.eluniversal.com.mx/estados/balacera-culiacan/",))
+
+    stats = sweep_events(db)                 # ni una petición de red
+
+    assert stats["retired"] == 1
+    assert stats["geocoded"] == 1
+    db.refresh(malo); db.refresh(bueno)
+    assert malo.status == EventStatus.discarded.value
+    assert bueno.status == EventStatus.published.value
+    assert bueno.lat is not None
+
+
+def test_el_barrido_es_idempotente(db):
+    """Relanzarlo no retira dos veces ni deshace nada."""
+    from atalaya.process.pipeline import sweep_events
+
+    run = _run(db)
+    _viejo(db, run, "Terremoto en Indonesia deja al menos 47 muertos")
+    _viejo(db, run, "Balacera deja dos heridos en el centro de Culiacán",
+           urls=("https://www.eluniversal.com.mx/estados/balacera-culiacan/",))
+
+    sweep_events(db)
+    segunda = sweep_events(db)
+
+    assert segunda == {"retired": 0, "reattributed": 0, "geocoded": 0}

@@ -116,6 +116,20 @@ def _country_geo(code: str) -> tuple[float, float] | None:
     return next((z.geo for z in country.zones if z.geo), None)
 
 
+def sweep_events(db: Session) -> dict:
+    """Repasa el panel sin recolectar nada. Devuelve el recuento.
+
+    Es una operación de mantenimiento sobre lo que ya está en base: ni una
+    petición de red, unos segundos. Existe suelta porque estaba enterrada
+    en el tratamiento diario, y eso obligaba a esperar una colecta entera
+    —media hora— para aplicar una corrección de filtro.
+    """
+    stats = {"retired": 0, "reattributed": 0, "geocoded": 0}
+    _retire_screened_events(db, stats)
+    db.commit()
+    return stats
+
+
 def _retire_screened_events(db: Session, stats: dict) -> None:
     """Repasa los eventos publicados, sin límite de antigüedad.
 

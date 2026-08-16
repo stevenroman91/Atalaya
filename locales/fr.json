@@ -123,5 +123,8 @@
   "admin_probe": "Diagnostiquer",
   "admin_probe_hint": "Pour les sources en échec, « Diagnostiquer » lit leur page d'accueil et indique ce qu'elle contient — sans rien écrire en base.",
   "admin_probe_all": "Tout diagnostiquer",
-  "admin_probing": "Diagnostic en cours en arrière-plan : rechargez la page dans deux minutes pour voir les résultats."
+  "admin_probing": "Diagnostic en cours en arrière-plan : rechargez la page dans deux minutes pour voir les résultats.",
+  "admin_sweep": "Réviser le panneau",
+  "admin_swept": "Balayage effectué",
+  "admin_sweep_hint": "« Réviser le panneau » repasse les filtres sur les événements déjà publiés : retire ceux hors périmètre, les réattribue au bon pays et renseigne les coordonnées de la carte. Aucune collecte — quelques secondes."
 }

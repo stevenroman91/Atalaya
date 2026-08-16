@@ -123,5 +123,8 @@
   "admin_probe": "Diagnosticar",
   "admin_probe_hint": "Para as fontes em falha, «Diagnosticar» lê a sua página inicial e diz o que contém — sem escrever nada na base.",
   "admin_probe_all": "Diagnosticar todas",
-  "admin_probing": "Diagnóstico em curso em segundo plano: recarregue a página daqui a dois minutos para ver os resultados."
+  "admin_probing": "Diagnóstico em curso em segundo plano: recarregue a página daqui a dois minutos para ver os resultados.",
+  "admin_sweep": "Rever o painel",
+  "admin_swept": "Varrimento aplicado",
+  "admin_sweep_hint": "«Rever o painel» volta a aplicar os filtros aos eventos já publicados: retira os que estão fora do perímetro, reatribui-os ao país correto e preenche as coordenadas do mapa. Não recolhe nada — demora segundos."
 }
