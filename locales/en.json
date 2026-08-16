@@ -183,5 +183,7 @@
   "admin_reclassifying": "Reclassification started: the model is reviewing the panel. One minute, then reload.",
   "admin_no_classifier": "The classifier is off: ANTHROPIC_API_KEY is missing, or classifier.enabled is false in config/schedule.yaml.",
   "admin_reclassify_hint": "«Reclassify with the model» asks the classifier whether each panel event is a security fact and of what type. Nothing is deleted: off-topic items drop to a note with their reason shown.",
-  "cat_no_securitario": "outside the security scope"
+  "cat_no_securitario": "outside the security scope",
+  "badge_pending": "TO CONFIRM",
+  "counter_nonsec": "Outside security"
 }

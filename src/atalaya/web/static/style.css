@@ -538,3 +538,5 @@ details.coverage td.links { min-width: 240px; }
   font-size: .82rem; color: var(--text-2); margin: .3rem 0 .5rem;
   padding-left: .6rem; border-left: 3px solid var(--border-strong);
 }
+.badge.type-PENDING { background: var(--warn); color: #fff; }
+.counter.nonsec .num { color: var(--muted); }

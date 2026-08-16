@@ -132,12 +132,18 @@ def counters(db: Session, f: EventFilters) -> dict:
     since = datetime.now(timezone.utc) - timedelta(hours=24)
     events = db.scalars(select(Event).where(Event.created_at >= since,
                                             *_dim_conditions(f)))
-    out = {"alerts": 0, "notes": 0, "pending": 0, "by_country": {}}
+    out = {"alerts": 0, "notes": 0, "pending": 0, "nonsec": 0, "by_country": {}}
     for ev in events:
         if ev.status == EventStatus.pending_confirm.value:
             out["pending"] += 1
             continue
         if ev.status != EventStatus.published.value:
+            continue
+        # Lo que el clasificador declaró ajeno a la seguridad tiene su propio
+        # contador. Contarlo entre las notas daba «13 notas hoy» cuando las
+        # trece eran justamente lo que no había que leer.
+        if ev.category == "no_securitario":
+            out["nonsec"] += 1
             continue
         key = "alerts" if ev.event_type == "ALERTA" else "notes"
         out[key] += 1

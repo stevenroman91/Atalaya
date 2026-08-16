@@ -660,3 +660,39 @@ def test_el_barrido_reclasifica_sin_retirar_lo_que_sigue_siendo_grave(db):
     db.refresh(ev)
     assert ev.status == EventStatus.pending_confirm.value   # sigue en pie
     assert ev.category == "desastre_natural"                # y bien etiquetado
+
+
+# ── una tarjeta no debe contradecirse a sí misma ─────────────────────────
+def test_un_pendiente_no_lleva_la_insignia_alerta(db):
+    """«ALERTA» arriba y «no difundir como alerta» debajo, en la misma
+    tarjeta. Y contradice la regla: fuente única + gravedad extrema NUNCA
+    se difunde como alerta."""
+    run = _run(db)
+    _viejo(db, run, "Decretan toque de queda en Antón por homicidios",
+           country="MX", urls=("https://critica.com.pa/toque-de-queda/",),
+           status=EventStatus.pending_confirm.value)
+    db.commit()
+
+    client, cookie = _admin_client(db)
+    page = client.get("/dashboard", cookies=cookie)
+
+    assert "POR CONFIRMAR" in page.text
+    assert "badge type-ALERTA" not in page.text
+
+
+def test_lo_ajeno_a_la_seguridad_no_infla_el_contador_de_notas(db):
+    """«13 notas hoy» cuando las trece eran justamente lo que no hay que
+    leer."""
+    from atalaya.web.events_view import EventFilters, counters
+
+    run = _run(db)
+    ev = _viejo(db, run, "Romário deixa PL após 5 anos", country="MX",
+                urls=("https://www.cnnbrasil.com.br/eleicoes/romario/",))
+    ev.category = "no_securitario"
+    ev.event_type = "NOTA"
+    db.commit()
+
+    stats = counters(db, EventFilters(countries=["MX"]))
+
+    assert stats["nonsec"] == 1
+    assert stats["notes"] == 0

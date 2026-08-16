@@ -183,5 +183,7 @@
   "admin_reclassifying": "Reclassificação lançada: o modelo repassa o painel. Um minuto, depois recarrega.",
   "admin_no_classifier": "O classificador está desligado: falta ANTHROPIC_API_KEY, ou classifier.enabled é false em config/schedule.yaml.",
   "admin_reclassify_hint": "«Reclassificar com o modelo» pergunta ao classificador se cada evento do painel é um facto de segurança e de que tipo. Nada é apagado: o alheio desce a nota com o seu motivo à vista.",
-  "cat_no_securitario": "fora do âmbito da segurança"
+  "cat_no_securitario": "fora do âmbito da segurança",
+  "badge_pending": "A CONFIRMAR",
+  "counter_nonsec": "Alheios à segurança"
 }

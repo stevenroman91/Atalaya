@@ -7,6 +7,7 @@
   <div class="counter alert"><span class="num">{{ stats.alerts }}</span>{{ t('alerts_today') }}</div>
   <div class="counter note"><span class="num">{{ stats.notes }}</span>{{ t('notes_today') }}</div>
   <div class="counter pending"><span class="num">{{ stats.pending }}</span>{{ t('pending_confirm') }}</div>
+  {% if stats.nonsec %}<div class="counter nonsec"><span class="num">{{ stats.nonsec }}</span>{{ t('counter_nonsec') }}</div>{% endif %}
   {% for code, c in stats.by_country.items() %}
     <div class="counter mini"><span class="num">{{ c.alerts + c.notes }}</span>{{ countries[code].name if code in countries else code }}</div>
   {% endfor %}
@@ -97,7 +98,15 @@
     {% for e in events %}
     <article class="card {{ 'is-alert' if e.event_type == 'ALERTA' else 'is-note' }} {{ 'is-pending' if e.status == 'pending_confirm' }}">
       <header>
+        {# Una tarjeta que dice ALERTA y debajo «no difundir como alerta» se
+           contradice a sí misma, y contradice la regla: fuente única +
+           gravedad extrema NUNCA se difunde como alerta. La insignia dice
+           lo que el evento es, no lo que habría sido con dos fuentes. #}
+        {% if e.status == 'pending_confirm' %}
+        <span class="badge type-PENDING">{{ t('badge_pending') }}</span>
+        {% else %}
         <span class="badge type-{{ e.event_type }}">{{ t('event_type_' + e.event_type) }}</span>
+        {% endif %}
         {% if e.category %}<span class="badge cat">{{ t('cat_' + e.category) }}</span>{% endif %}
         {% if e.level %}<span class="badge level-{{ e.level }}">{{ t('level_' + e.level) }}</span>{% endif %}
         {% if e.is_new %}<span class="badge new">{{ t('new_badge') }}</span>{% endif %}
