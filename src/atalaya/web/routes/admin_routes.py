@@ -158,7 +158,7 @@ def probe_api(key: str, cfg: dict, fetcher=None) -> tuple[bool, str]:
         url = (f"{url}?query=%22M%C3%A9xico%22&mode=artlist&format=json"
                f"&maxrecords=5&timespan=1d")
     f = fetcher or PoliteFetcher()
-    resp = f.get(url)
+    resp = f.get(url, retries=2)      # GDELT corta la conexión de vez en cuando
     if not resp:
         _, texto = getattr(f, "last_failure", None) or ("red", "sin respuesta")
         return False, f"sin respuesta — {texto}"

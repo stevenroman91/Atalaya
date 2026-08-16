@@ -169,3 +169,51 @@ def test_el_fetcher_dice_por_que_falló():
 
     assert _classify_transport(Exception("[Errno -2] Name or service not known"))[0] == "dns"
     assert _classify_transport(Exception("CERTIFICATE_VERIFY_FAILED"))[0] == "tls"
+
+
+# ── reintentar lo transitorio, jamás lo que es una respuesta ─────────────
+# GDELT corta la conexión sin responder de vez en cuando («Server
+# disconnected without sending a response»): dos diagnósticos seguidos, dos
+# resultados distintos. Eso se reintenta. Un 403 o un robots.txt no: no son
+# incidentes, son respuestas, e insistir sería justamente lo que no hacemos.
+
+def test_la_conexion_cortada_se_considera_transitoria():
+    from atalaya.collect.fetcher import _classify_transport
+
+    clave, _ = _classify_transport(
+        Exception("Server disconnected without sending a response."))
+    assert clave == "transitoria"
+
+
+def test_solo_se_reintenta_lo_transitorio():
+    from atalaya.collect.fetcher import PoliteFetcher
+
+    assert "transitoria" in PoliteFetcher._REINTENTABLES
+    assert "sobrecarga" in PoliteFetcher._REINTENTABLES
+    assert "timeout" in PoliteFetcher._REINTENTABLES
+    assert "bloqueada" not in PoliteFetcher._REINTENTABLES   # un 403 es una respuesta
+    assert "robots" not in PoliteFetcher._REINTENTABLES      # y eso, una prohibición
+
+
+def test_el_reintento_acaba_devolviendo_la_respuesta():
+    """Un corte seguido de un éxito no debe dejar rastro de fallo."""
+    import httpx
+
+    from atalaya.collect.fetcher import PoliteFetcher
+
+    f = PoliteFetcher()
+    f.delay = 0.0
+    f.allowed = lambda url: True
+    intentos = {"n": 0}
+
+    def get(url):
+        intentos["n"] += 1
+        if intentos["n"] == 1:
+            raise httpx.RemoteProtocolError("Server disconnected without sending a response.")
+        return httpx.Response(200, text="ok", request=httpx.Request("GET", url))
+
+    f.client.get = get
+    resp = f.get("https://api.gdeltproject.org/x", retries=2)
+
+    assert resp is not None and intentos["n"] == 2
+    assert f.last_failure is None

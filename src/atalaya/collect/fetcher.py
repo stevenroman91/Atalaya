@@ -99,7 +99,13 @@ class PoliteFetcher:
         return url
 
     # ── API ──────────────────────────────────────────────────────────────
-    def get(self, url: str, check_robots: bool = True) -> httpx.Response | None:
+    # Fallos que merecen otro intento: el servidor cortó, se saturó o tardó.
+    # NUNCA se reintenta un 403 ni un robots.txt: no son incidentes, son
+    # respuestas — insistir sería justamente lo que no hacemos.
+    _REINTENTABLES = ("transitoria", "timeout", "sobrecarga")
+
+    def get(self, url: str, check_robots: bool = True,
+            retries: int = 0) -> httpx.Response | None:
         """Devuelve la respuesta, o None. La causa del fallo queda en
         `last_failure` — «no se pudo» no es un diagnóstico.
 
@@ -108,6 +114,9 @@ class PoliteFetcher:
         acciones distintas, y una de ellas no exige ninguna. Contarlos
         juntos como «inalcanzable» llenaba la lista de «revisar a mano» de
         cosas que no se pueden arreglar.
+
+        `retries` solo actúa sobre fallos transitorios. La espera entre
+        intentos la impone el delay de cortesía del host, que ya está.
         """
         self.last_failure = None
         if not url.startswith(("http://", "https://")):
@@ -118,23 +127,32 @@ class PoliteFetcher:
             log.info("robots.txt prohíbe %s", url)
             self.last_failure = ("robots", "robots.txt del sitio nos lo prohíbe")
             return None
-        self._wait_politely(url)
-        try:
-            resp = self.client.get(self._rewrite(url))
-            resp.raise_for_status()
-            return resp
-        except httpx.HTTPStatusError as exc:
-            code = exc.response.status_code
-            if code in (401, 403, 429):
-                self.last_failure = ("bloqueada", f"el sitio nos responde {code}")
-            else:
-                self.last_failure = ("error_http", f"respuesta {code}")
-            log.warning("fetch falló %s: %s", url, exc)
-            return None
-        except httpx.HTTPError as exc:
-            self.last_failure = _classify_transport(exc)
-            log.warning("fetch falló %s: %s", url, exc)
-            return None
+        for intento in range(retries + 1):
+            self._wait_politely(url)
+            try:
+                resp = self.client.get(self._rewrite(url))
+                resp.raise_for_status()
+                self.last_failure = None
+                return resp
+            except httpx.HTTPStatusError as exc:
+                code = exc.response.status_code
+                if code == 429:
+                    self.last_failure = ("sobrecarga", "el sitio nos pide bajar el ritmo (429)")
+                elif code in (401, 403):
+                    self.last_failure = ("bloqueada", f"el sitio nos responde {code}")
+                elif code >= 500:
+                    self.last_failure = ("transitoria", f"error del servidor ({code})")
+                else:
+                    self.last_failure = ("error_http", f"respuesta {code}")
+                log.warning("fetch falló %s: %s", url, exc)
+            except httpx.HTTPError as exc:
+                self.last_failure = _classify_transport(exc)
+                log.warning("fetch falló %s: %s", url, exc)
+            if self.last_failure[0] not in self._REINTENTABLES:
+                return None
+            if intento < retries:
+                log.info("reintento %d/%d en %s", intento + 1, retries, url)
+        return None
 
     def resolve_google_news_url(self, gn_url: str) -> str | None:
         """Devuelve la URL real del artículo detrás de un enlace de Google News.
@@ -170,6 +188,10 @@ def _classify_transport(exc: Exception) -> tuple[str, str]:
         return ("tls", "certificado del sitio inválido (no lo saltamos)")
     if "timed out" in msg.lower() or "Timeout" in type(exc).__name__:
         return ("timeout", "el sitio no respondió a tiempo")
+    if "disconnected" in msg.lower() or "RemoteProtocol" in type(exc).__name__:
+        # GDELT lo hace de vez en cuando: corta sin responder. Un reintento
+        # basta — no es un bloqueo, es una conexión que se cae.
+        return ("transitoria", "el servidor cortó la conexión sin responder")
     return ("red", msg[:120])
 
 

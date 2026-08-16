@@ -729,10 +729,11 @@ class Collector:
                f"&mode=artlist&format=json&sort=datedesc"
                f"&maxrecords={int(cfg.get('max_records', 60))}"
                f"&timespan={cfg.get('timespan', '1d')}")
-        resp = self.fetcher.get(url)
+        resp = self.fetcher.get(url, retries=2)
         if not resp:
+            fallo = getattr(self.fetcher, "last_failure", None)
             self.mark_source(cfg["domain"], cfg.get("name", "GDELT"), ok=False,
-                             error="sin respuesta")
+                             error=fallo[1] if fallo else "sin respuesta")
             return
         try:
             entries = parse_gdelt(resp.json())
@@ -761,10 +762,11 @@ class Collector:
             cfg = apis.get(key) or {}
             if not self._api_ready(cfg):
                 continue
-            resp = self.fetcher.get(cfg["url"])
+            resp = self.fetcher.get(cfg["url"], retries=1)
             if not resp:
+                fallo = getattr(self.fetcher, "last_failure", None)
                 self.mark_source(cfg["domain"], cfg.get("name", key), ok=False,
-                                 error="sin respuesta")
+                                 error=fallo[1] if fallo else "sin respuesta")
                 continue
             try:
                 if parse == "usgs":
