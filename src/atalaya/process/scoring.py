@@ -13,6 +13,7 @@ from dataclasses import dataclass
 
 from atalaya.config import load_keywords
 from atalaya.db.models import Article
+from atalaya.process.classifier import NO_SECURITARIO
 from atalaya.process.cluster import Cluster, article_title, normalize
 
 
@@ -166,7 +167,10 @@ def classify_type(category: str, sev: dict) -> str:
     nota — el analista lo ve y decide — pero sin la insignia roja ni unas
     recomendaciones fabricadas sobre una etiqueta que no sostenemos.
     """
-    if category == "sin_clasificar":
+    # «no_securitario» es el veredicto del clasificador; «sin_clasificar»,
+    # la confesión del léxico. Ninguno de los dos justifica una alerta ni
+    # unas recomendaciones — pero ambos siguen visibles en el panel.
+    if category in ("sin_clasificar", NO_SECURITARIO):
         return "NOTA"
     if sev.get("extreme") and category not in ("crimen_alto_impacto", "crimen_bajo_impacto",
                                                "desastre_natural"):

@@ -77,6 +77,18 @@
   </form>
 </details>
 
+{# El veredicto del clasificador se ofrece, no se impone: esconder de oficio
+   lo que un modelo declaró ajeno sería descartar en silencio. #}
+{% if nonsec %}
+<p class="covjump">
+  {% if f.hide_nonsec %}
+  <a href="{{ with_params(query, hide_nonsec=None) }}">{{ t('show_nonsec', n=nonsec) }}</a>
+  {% else %}
+  <a href="{{ with_params(query, hide_nonsec=1) }}">{{ t('hide_nonsec', n=nonsec) }}</a>
+  {% endif %}
+</p>
+{% endif %}
+
 <div class="dashgrid">
   <section class="cards">
     {% if not events %}
@@ -93,6 +105,9 @@
       </header>
       <h3>{{ e.title }}</h3>
       {% if e.status == 'pending_confirm' %}<p class="pendingnote">⚠ {{ t('to_confirm_note') }}</p>{% endif %}
+      {% if e.classifier and not e.classifier.es_seguridad %}
+      <p class="nonsecnote">{{ t('nonsec_note') }} <span class="muted">{{ e.classifier.motivo }}</span></p>
+      {% endif %}
       {% if e.summary %}<p class="summary">{{ e.summary }}{% if e.es_only %} <em class="muted">({{ t('summary_es_only') }})</em>{% endif %}</p>{% endif %}
       {% if e.recommendations %}
       <div class="recs"><strong>{{ t('recommendations') }}:</strong>

@@ -18,6 +18,7 @@ from atalaya.config import load_countries, load_schedule, zone_by_id
 from atalaya.db.models import (
     Article, ArticleStatus, CollectRun, Event, EventArticle, EventStatus, Reject,
 )
+from atalaya.process import classifier
 from atalaya.process.cluster import Cluster, cluster_articles
 from atalaya.process.scoring import (
     classify_category, classify_level, classify_type, independent_source_count,
@@ -138,6 +139,38 @@ def _country_geo(code: str) -> tuple[float, float] | None:
     return next((z.geo for z in country.zones if z.geo), None)
 
 
+def _ask_classifier(db: Session, *, key: str, title: str, summary: str | None,
+                    country: str, stats: dict) -> dict | None:
+    """Veredicto del modelo para este cluster, o None si no aplica.
+
+    Cachea por huella del texto juzgado: un re-run sobre el mismo titular y
+    el mismo resumen no vuelve a pagar. El techo por colecta protege la
+    factura si un día llegan mil clusters en vez de treinta.
+    """
+    if classifier.backend() == "none":
+        return None
+    techo = int(load_schedule().get("classifier", {}).get("max_events", 120))
+    if stats.get("classified", 0) >= techo:
+        stats["classifier_capped"] = stats.get("classifier_capped", 0) + 1
+        return None
+
+    huella = classifier.fingerprint(title, summary)
+    previo = db.scalar(select(Event).where(Event.dedup_key == key))
+    if previo and (previo.score_detail or {}).get("clasificador", {}).get("huella") == huella:
+        stats["classifier_cached"] = stats.get("classifier_cached", 0) + 1
+        return previo.score_detail["clasificador"]
+
+    veredicto = classifier.classify(title, summary, country)
+    if veredicto is None:
+        stats["classifier_failed"] = stats.get("classifier_failed", 0) + 1
+        return None
+    veredicto["huella"] = huella
+    stats["classified"] = stats.get("classified", 0) + 1
+    if not veredicto.get("es_seguridad"):
+        stats["no_securitario"] = stats.get("no_securitario", 0) + 1
+    return veredicto
+
+
 def purge_rejects(db: Session, days: int | None = None) -> int:
     """Borra las trazas de rechazo antiguas. Devuelve cuántas.
 
@@ -216,7 +249,7 @@ def _retire_screened_events(db: Session, stats: dict) -> None:
 def process_daily(db: Session, run: CollectRun, countries_filter: list[str] | None = None) -> dict:
     stats = {"clusters": 0, "published": 0, "pending_confirm": 0, "discarded": 0,
              "updated": 0, "screened": 0, "reattributed": 0, "retired": 0,
-             "geocoded": 0, "retitled": 0}
+             "geocoded": 0, "retitled": 0, "classified": 0}
     countries = load_countries()
     zones = zone_by_id()
 
@@ -278,6 +311,18 @@ def process_daily(db: Session, run: CollectRun, countries_filter: list[str] | No
 
             rep = cluster.representative
             summary = build_summary(cluster)
+
+            # El clasificador juzga el texto que verá el analista —titular y
+            # resumen ya construidos—, no el material bruto. Va aquí y no
+            # antes por eso, y porque solo se paga por lo que va a publicarse.
+            veredicto = _ask_classifier(db, key=cluster.dedup_key(),
+                                        title=rep.title, summary=summary,
+                                        country=country.name, stats=stats)
+            if veredicto:
+                category = veredicto["categoria"]
+                etype = classify_type(category, result.reasons["severity"])
+                result.reasons["clasificador"] = veredicto
+
             recommendations = (
                 build_recommendations(category, place,
                                       f"{rep.title}\n{summary or ''}")

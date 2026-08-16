@@ -34,6 +34,7 @@ CATEGORIES = [
     "manifestacion",
     "accidente",
     "sin_clasificar",
+    "no_securitario",
 ]
 CATEGORY_LABELS_ES = {
     "crimen_alto_impacto": "crimen de alto impacto",
@@ -43,6 +44,7 @@ CATEGORY_LABELS_ES = {
     "manifestacion": "manifestación",
     "accidente": "accidente",
     "sin_clasificar": "sin clasificar",
+    "no_securitario": "fuera del ámbito de seguridad",
 }
 
 

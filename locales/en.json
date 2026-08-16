@@ -175,5 +175,8 @@
   "cov_fl_sin": "no feed",
   "cov_fl_configurado": "verified feed",
   "cov_fl_autodescubierto": "auto-discovered feed",
-  "cov_clear": "clear filter"
+  "cov_clear": "clear filter",
+  "hide_nonsec": "Hide the {n} items the classifier ruled outside security",
+  "show_nonsec": "Show the {n} non-security items again",
+  "nonsec_note": "Classified outside the security scope:"
 }

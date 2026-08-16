@@ -36,7 +36,11 @@ brandés, cloisonnement multi-clients. La mise en page finale leur appartient.
 ## Règles non négociables
 
 - **Résumés strictement extractifs** : phrases découpées dans les sources,
-  jamais générées. Seules les traductions fr/en/pt passent par un modèle.
+  jamais générées. Un modèle n'intervient que là où il n'écrit pas le texte
+  remis à l'analyste : les traductions fr/en/pt, et le classificateur de
+  pertinence — qui répond « fait de sécurité ? » et « quelle catégorie ? »,
+  jamais autre chose. Un verdict de non-pertinence ne supprime rien : il
+  rétrograde en note, affiche son motif, et l'analyste tranche.
 - **Deux sources indépendantes** pour publier une alerte. Source unique +
   gravité extrême → « à confirmer », jamais diffusé comme alerte.
 - **Le robot s'identifie** (UA « AtalayaBot/1.0 »), respecte robots.txt et

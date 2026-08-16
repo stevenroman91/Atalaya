@@ -37,3 +37,14 @@ collector:
   # Cuánto se guarda la traza de los artículos descartados. Sirve al
   # analista para discutir los filtros de estos días, no para siempre.
   reject_retention_days: 30
+
+# Clasificador de pertinencia (§5.5 bis). Responde a dos preguntas —¿es un
+# hecho de seguridad? ¿de qué tipo?— y NO redacta nada: los resúmenes siguen
+# siendo estrictamente extractivos. Sin ANTHROPIC_API_KEY no se activa y el
+# pipeline conserva la clasificación léxica.
+classifier:
+  enabled: true
+  model: "claude-opus-5"
+  # Techo por colecta: protege la factura si un día el filtrado aguas arriba
+  # falla y llegan mil clusters en vez de treinta.
+  max_events: 120

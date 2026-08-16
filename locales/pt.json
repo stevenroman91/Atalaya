@@ -175,5 +175,8 @@
   "cov_fl_sin": "sem fluxo",
   "cov_fl_configurado": "fluxo verificado",
   "cov_fl_autodescubierto": "fluxo autodescoberto",
-  "cov_clear": "remover o filtro"
+  "cov_clear": "remover o filtro",
+  "hide_nonsec": "Ocultar os {n} factos que o classificador declarou alheios à segurança",
+  "show_nonsec": "Mostrar de novo os {n} factos alheios à segurança",
+  "nonsec_note": "Classificado fora do âmbito da segurança:"
 }

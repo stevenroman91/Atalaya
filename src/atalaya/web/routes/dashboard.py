@@ -13,8 +13,8 @@ from sqlalchemy import select
 from atalaya.db.models import EventStatus, utcnow
 from atalaya.web.deps import current_user, get_db, render, templates
 from atalaya.web.events_view import (
-    EventFilters, counters, country_tabs, default_filters_for, localize_event,
-    query_events, timeline,
+    EventFilters, count_nonsec, counters, country_tabs, default_filters_for,
+    localize_event, query_events, timeline,
 )
 from atalaya.web.i18n import translator
 from atalaya.web.routes.coverage import WINDOW_HOURS as COVERAGE_WINDOW
@@ -35,7 +35,8 @@ def _parse_date(value: str | None):
 def _filters_from_query(user, country: list[str] | None, zone: str | None,
                         category: str | None, level: str | None, type_: str | None,
                         date_from: str | None, date_to: str | None, q: str | None,
-                        scope: str | None) -> EventFilters:
+                        scope: str | None,
+                        hide_nonsec: str | None = None) -> EventFilters:
     f = default_filters_for(user)
     if scope == "all":
         f.countries = []          # ampliar puntualmente a todo el perímetro
@@ -48,6 +49,7 @@ def _filters_from_query(user, country: list[str] | None, zone: str | None,
     f.date_from = _parse_date(date_from)
     f.date_to = _parse_date(date_to)
     f.q = (q or "").strip() or None
+    f.hide_nonsec = hide_nonsec in ("1", "true", "on")
     return f
 
 
@@ -59,10 +61,11 @@ def dashboard(request: Request,
               date_from: str | None = None, date_to: str | None = None,
               q: str | None = None, scope: str | None = None,
               cov_estado: str | None = None, cov_flujo: str | None = None,
+              hide_nonsec: str | None = None,
               user_sess=Depends(current_user), db: Session = Depends(get_db)):
     user, sess = user_sess
     f = _filters_from_query(user, country, zone, category, level, type,
-                            date_from, date_to, q, scope)
+                            date_from, date_to, q, scope, hide_nonsec)
     f.statuses = [EventStatus.published.value, EventStatus.pending_confirm.value]
     events = [localize_event(e, user.lang, user.timezone) for e in query_events(db, f)]
 
@@ -87,6 +90,7 @@ def dashboard(request: Request,
     return render(request, "dashboard.html", user=user, csrf=sess.csrf_token,
                   events=events, stats=stats, timeline=tl, f=f,
                   cobertura=cobertura, window_hours=COVERAGE_WINDOW,
+                  nonsec=count_nonsec(db, f),
                   tabs=country_tabs(db, f, query, list(user.countries or [])),
                   query=query)
 

@@ -25,6 +25,10 @@ class EventFilters:
     date_from: datetime | None = None
     date_to: datetime | None = None
     q: str | None = None
+    # Ocultar lo que el clasificador declaró ajeno a la seguridad. Es una
+    # elección del analista, nunca el valor por defecto: esconder de oficio
+    # el veredicto de un modelo sería descartar en silencio.
+    hide_nonsec: bool = False
     statuses: list[str] = field(default_factory=lambda: [EventStatus.published.value])
 
 
@@ -50,6 +54,8 @@ def _dim_conditions(f: EventFilters) -> list:
     if f.q:
         needle = f"%{f.q}%"
         conds.append(or_(Event.title_es.ilike(needle), Event.summary_es.ilike(needle)))
+    if f.hide_nonsec:
+        conds.append(Event.category != "no_securitario")
     return conds
 
 
@@ -114,6 +120,9 @@ def localize_event(event: Event, lang: str, user_tz: str) -> dict:
         "sources": sources,
         "n_sources": event.recurrence,
         "has_state_media": event.has_state_media,
+        # El veredicto del clasificador, a la vista: el analista debe poder
+        # contradecirlo, y para eso tiene que leer en qué se basó.
+        "classifier": (event.score_detail or {}).get("clasificador"),
     }
 
 
@@ -135,6 +144,17 @@ def counters(db: Session, f: EventFilters) -> dict:
         bc = out["by_country"].setdefault(ev.country, {"alerts": 0, "notes": 0})
         bc["alerts" if ev.event_type == "ALERTA" else "notes"] += 1
     return out
+
+
+def count_nonsec(db: Session, f: EventFilters) -> int:
+    """Cuántos eventos visibles declaró el clasificador ajenos a la seguridad."""
+    from sqlalchemy import func
+
+    visible = replace(f, hide_nonsec=False)
+    return db.scalar(
+        select(func.count(Event.id))
+        .where(Event.status.in_(f.statuses), Event.category == "no_securitario",
+               *_dim_conditions(replace(visible, category=None)))) or 0
 
 
 def counts_by_country(db: Session, f: EventFilters) -> dict[str, int]:
