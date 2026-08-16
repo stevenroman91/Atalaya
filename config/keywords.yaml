@@ -92,7 +92,8 @@ categories:
   # portugués un ACV es un «acidente vascular cerebral».
   accidente:
     es: ["accidente de tránsito", "accidente vial", "accidente carretero",
-         "choque de vehículos", volcadura, volcó, atropellado, atropello,
+         "choque de vehículos", "tras chocar", "chocó contra", "chocó con",
+         "choque frontal", volcadura, volcó, atropellado, atropello,
          descarrilamiento, "accidente aéreo", avionazo, naufragio,
          derrumbe, "fuga de gas"]
     pt: ["acidente de trânsito", "acidente rodoviário", colisão, capotamento, tombou,

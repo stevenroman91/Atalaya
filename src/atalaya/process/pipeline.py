@@ -171,6 +171,43 @@ def _ask_classifier(db: Session, *, key: str, title: str, summary: str | None,
     return veredicto
 
 
+def reclassify_events(db: Session, limit: int = 200) -> dict:
+    """Pasa el clasificador por los eventos ya publicados.
+
+    El barrido es léxico y dura segundos; la colecta dura media hora. Sin
+    esta tercera vía, ver lo que aporta el modelo exigía esperar una colecta
+    entera — y los eventos anteriores a su llegada no se habrían juzgado
+    jamás, porque un evento solo se reprocesa mientras sus artículos siguen
+    en la ventana de frescura. Es el mismo agujero que ya nos costó tres
+    correcciones.
+    """
+    stats = {"classified": 0, "no_securitario": 0, "reclassified": 0,
+             "classifier_failed": 0, "classifier_cached": 0}
+    if classifier.backend() == "none":
+        stats["skipped_backend_none"] = 1
+        return stats
+
+    live = (EventStatus.published.value, EventStatus.pending_confirm.value)
+    for ev in db.scalars(select(Event).where(Event.status.in_(live))
+                         .order_by(Event.created_at.desc()).limit(limit)):
+        country = load_countries().get(ev.country)
+        veredicto = _ask_classifier(
+            db, key=ev.dedup_key, title=ev.title_es or "", summary=ev.summary_es,
+            country=country.name if country else ev.country, stats=stats)
+        if not veredicto:
+            continue
+        ev.score_detail = {**(ev.score_detail or {}), "clasificador": veredicto}
+        categoria = veredicto["categoria"]
+        tipo = classify_type(categoria, (ev.score_detail or {}).get("severity", {}))
+        if (categoria, tipo) != (ev.category, ev.event_type):
+            ev.category, ev.event_type = categoria, tipo
+            if tipo != "ALERTA":
+                ev.recommendations_es = None
+            stats["reclassified"] += 1
+        db.commit()
+    return stats
+
+
 def purge_rejects(db: Session, days: int | None = None) -> int:
     """Borra las trazas de rechazo antiguas. Devuelve cuántas.
 

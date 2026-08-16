@@ -178,5 +178,9 @@
   "cov_clear": "quitar el filtro",
   "hide_nonsec": "Ocultar los {n} hechos que el clasificador declaró ajenos a la seguridad",
   "show_nonsec": "Mostrar de nuevo los {n} hechos ajenos a la seguridad",
-  "nonsec_note": "Clasificado fuera del ámbito de seguridad:"
+  "nonsec_note": "Clasificado fuera del ámbito de seguridad:",
+  "admin_reclassify": "Reclasificar con el modelo",
+  "admin_reclassifying": "Reclasificación lanzada: el modelo repasa el panel. Un minuto, luego recarga.",
+  "admin_no_classifier": "El clasificador está apagado: falta ANTHROPIC_API_KEY, o classifier.enabled es false en config/schedule.yaml.",
+  "admin_reclassify_hint": "«Reclasificar con el modelo» pregunta al clasificador si cada evento del panel es un hecho de seguridad y de qué tipo. No borra nada: lo ajeno baja a nota con su motivo a la vista."
 }

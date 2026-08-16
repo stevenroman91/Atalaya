@@ -267,6 +267,39 @@ def _probe_apis_in_background() -> bool:
     return True
 
 
+def _reclassify_in_background() -> bool:
+    """Pasa el clasificador por el panel, en un hilo: son decenas de llamadas
+    de red y una petición web no debe esperarlas."""
+    from atalaya.db import SessionLocal
+
+    if not _PROBE_LOCK.acquire(blocking=False):
+        return False
+
+    def repasar():
+        from atalaya.process.pipeline import reclassify_events
+        with SessionLocal() as job_db:
+            s = reclassify_events(job_db)
+            log.info("reclasificación: %s", s)
+
+    threading.Thread(target=_releasing(repasar), daemon=True,
+                     name="reclassify").start()
+    return True
+
+
+@router.post("/reclassify")
+async def reclassify(request: Request, user_sess=Depends(require_admin),
+                     db: Session = Depends(get_db)):
+    await check_csrf(request, user_sess)
+    from atalaya.process.classifier import backend
+
+    if backend() == "none":
+        return RedirectResponse("/admin?notice=no_classifier", status_code=303)
+    lanzado = _reclassify_in_background()
+    return RedirectResponse(
+        "/admin?notice=reclassifying" if lanzado else "/admin?notice=probe_busy",
+        status_code=303)
+
+
 @router.post("/probe-apis")
 async def probe_apis(request: Request, user_sess=Depends(require_admin),
                      db: Session = Depends(get_db)):

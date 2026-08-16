@@ -181,3 +181,54 @@ def test_una_incoherencia_del_modelo_se_corrige(monkeypatch):
         sys.modules.pop("anthropic", None)
 
     assert v["categoria"] == "no_securitario"    # se impone la coherencia
+
+
+# ── repasar el panel con el modelo, sin esperar una colecta ──────────────
+def test_reclasificar_repasa_los_eventos_ya_publicados(db, veredictos):
+    """El barrido es léxico y dura segundos; la colecta dura media hora. Sin
+    esta tercera vía, los eventos anteriores al clasificador no se habrían
+    juzgado jamás — sus artículos ya salieron de la ventana de frescura."""
+    from atalaya.db.models import EventStatus
+    from atalaya.process.pipeline import reclassify_events
+
+    run = _run(db)
+    ev = Event(run_id=run.id, dedup_key="k-luckra", country="MX",
+               title_es="Luck Ra se largó a llorar en pleno show",
+               summary_es="El artista frenó unos minutos para una reflexión.",
+               summary_version="v", event_type="ALERTA",
+               category="crimen_alto_impacto", level="informativo",
+               status=EventStatus.published.value,
+               recommendations_es=["Evitar la zona afectada."],
+               recurrence=2, independent_sources=2, has_state_media=False)
+    db.add(ev)
+    db.commit()
+
+    stats = reclassify_events(db)
+
+    db.refresh(ev)
+    assert stats["classified"] == 1 and stats["reclassified"] == 1
+    assert ev.category == "no_securitario"
+    assert ev.event_type == "NOTA"
+    assert ev.recommendations_es is None      # no se recomienda sobre una nota
+    assert ev.status == EventStatus.published.value   # sigue visible
+
+
+def test_reclasificar_sin_backend_no_toca_nada(db, monkeypatch):
+    from atalaya.process import classifier as c
+    from atalaya.process.pipeline import reclassify_events
+
+    monkeypatch.setattr(c, "backend", lambda: "none")
+    assert reclassify_events(db)["skipped_backend_none"] == 1
+
+
+def test_un_choque_en_ruta_es_un_accidente():
+    """«murió tras chocar con un camión» salía como crimen de alto impacto."""
+    from atalaya.process.cluster import Cluster
+    from atalaya.process.scoring import classify_category
+    from atalaya.db.models import Article
+
+    a = Article(url="https://x.test/1", domain="x.test", title=
+                "Santa Fe: un joven de 29 años murió tras chocar con un camión",
+                text="Un joven murió el jueves en un choque en la ruta nacional 19.",
+                country="AR", lang="es")
+    assert classify_category(Cluster(articles=[a]), "es") == "accidente"

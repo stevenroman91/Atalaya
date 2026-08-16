@@ -11,6 +11,8 @@
 {% elif notice == 'probing' %}<p class="ok">{{ t('admin_probing') }}</p>
 {% elif notice == 'probing_apis' %}<p class="ok">{{ t('admin_probing_apis') }}</p>
 {% elif notice == 'probe_busy' %}<p class="error">{{ t('admin_probe_busy') }}</p>
+{% elif notice == 'reclassifying' %}<p class="ok">{{ t('admin_reclassifying') }}</p>
+{% elif notice == 'no_classifier' %}<p class="error">{{ t('admin_no_classifier') }}</p>
 {% elif notice == 'swept' %}<p class="ok">{{ t('admin_swept') }}{% if swept %} — {{ swept }}{% endif %}</p>{% endif %}
 {% if invite_link %}
 <div class="invitelink">
@@ -76,6 +78,7 @@
   <p class="section-hint">{{ t('admin_collect_hint') }}</p>
   <p class="section-hint">{{ t('admin_sweep_hint') }}</p>
   <p class="section-hint">{{ t('admin_probe_hint') }}</p>
+  <p class="section-hint">{{ t('admin_reclassify_hint') }}</p>
   <div class="exportrow" style="margin-bottom:1rem">
     <form method="post" action="/admin/collect-now" class="inline">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -90,6 +93,10 @@
     <form method="post" action="/admin/probe-all" class="inline">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <button type="submit" class="button secondary">{{ t('admin_probe_all') }}</button>
+    </form>
+    <form method="post" action="/admin/reclassify" class="inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="button secondary">{{ t('admin_reclassify') }}</button>
     </form>
     <form method="post" action="/admin/probe-apis" class="inline">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

@@ -178,5 +178,9 @@
   "cov_clear": "clear filter",
   "hide_nonsec": "Hide the {n} items the classifier ruled outside security",
   "show_nonsec": "Show the {n} non-security items again",
-  "nonsec_note": "Classified outside the security scope:"
+  "nonsec_note": "Classified outside the security scope:",
+  "admin_reclassify": "Reclassify with the model",
+  "admin_reclassifying": "Reclassification started: the model is reviewing the panel. One minute, then reload.",
+  "admin_no_classifier": "The classifier is off: ANTHROPIC_API_KEY is missing, or classifier.enabled is false in config/schedule.yaml.",
+  "admin_reclassify_hint": "«Reclassify with the model» asks the classifier whether each panel event is a security fact and of what type. Nothing is deleted: off-topic items drop to a note with their reason shown."
 }
