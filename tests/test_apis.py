@@ -397,3 +397,132 @@ def test_ningun_termino_de_gdelt_es_demasiado_corto():
         q = gdelt_query("X", load_keywords()["daily"][lang], lang)
         for termino in q.split('"')[1::2]:
             assert termino == "X" or len(termino) >= _GDELT_MIN_TERM, termino
+
+
+# ── el encadenamiento completo, no solo el parseo ────────────────────────
+# Hasta aquí las pruebas cubrían los parseadores y el diagnóstico probaba
+# los puntos de entrada. Faltaba lo del medio: que una colecta real llame a
+# las API, ingiera lo que devuelven y lo lleve hasta el evento. Un parser
+# correcto conectado a nada no sirve de nada.
+
+class _RespuestaFalsa:
+    def __init__(self, texto="", datos=None):
+        self.text = texto
+        self._datos = datos
+        self.url = "https://x.test/"
+
+    def json(self):
+        if self._datos is None:
+            raise ValueError("no es JSON")
+        return self._datos
+
+
+class _FetcherFalso:
+    """Devuelve la carga útil que corresponda a cada URL. Ninguna red."""
+
+    def __init__(self, por_url):
+        self.por_url = por_url
+        self.last_failure = None
+        self.pedidas = []
+
+    def get(self, url, check_robots=True, retries=0):
+        self.pedidas.append(url)
+        for fragmento, resp in self.por_url.items():
+            if fragmento in url:
+                return resp
+        return None
+
+    def resolve_google_news_url(self, url):
+        return None
+
+
+def _marcar_probada(db, dominio, nombre):
+    """El cerrojo: sin prueba superada el colector ignora la API."""
+    from datetime import datetime, timezone
+
+    from atalaya.db.models import SourceRecord
+
+    db.add(SourceRecord(domain=dominio, name=nombre,
+                        last_ok_at=datetime.now(timezone.utc)))
+    db.commit()
+
+
+def test_una_colecta_ingiere_los_boletines_oficiales(db):
+    from datetime import datetime, timezone
+
+    from sqlalchemy import select
+
+    from atalaya.collect.collector import Collector
+    from atalaya.db.models import Article, CollectRun
+
+    ahora = int(datetime.now(timezone.utc).timestamp() * 1000)
+    usgs = {"features": [{
+        "properties": {"mag": 5.4, "place": "20 km SSE of Ciudad Hidalgo, Mexico",
+                       "time": ahora, "url": "https://earthquake.usgs.gov/ev/9",
+                       "title": "M 5.4 - 20 km SSE of Ciudad Hidalgo, Mexico"},
+        "geometry": {"coordinates": [-92.14, 14.68, 35.0]}}]}
+
+    _marcar_probada(db, "earthquake.usgs.gov", "USGS")
+    run = CollectRun(kind="daily", started_at=datetime.now(timezone.utc))
+    db.add(run)
+    db.flush()
+
+    col = Collector(db, fetcher=_FetcherFalso({
+        "earthquake.usgs.gov": _RespuestaFalsa(datos=usgs)}))
+    col._daily_official(run, window=26.0)
+    db.commit()
+
+    art = db.scalar(select(Article).where(Article.domain == "earthquake.usgs.gov"))
+    assert art is not None
+    assert art.country == "MX"
+    assert (art.lat, art.lon) == (14.68, -92.14)   # coordenadas exactas
+    assert art.source_type == "oficial"
+
+
+def test_sin_prueba_superada_la_api_no_se_toca(db):
+    """El cerrojo de §4: nada entra en base porque una URL parezca correcta."""
+    from datetime import datetime, timezone
+
+    from atalaya.collect.collector import Collector
+    from atalaya.db.models import CollectRun
+
+    run = CollectRun(kind="daily", started_at=datetime.now(timezone.utc))
+    db.add(run)
+    db.flush()
+
+    fetcher = _FetcherFalso({})
+    Collector(db, fetcher=fetcher)._daily_official(run, window=26.0)
+
+    assert fetcher.pedidas == []      # ni una petición
+
+
+def test_gdelt_pasa_por_el_mismo_filtro_que_google_news(db):
+    """No aporta texto, aporta URLs: deben cruzar el filtro de sección como
+    cualquier otra entrada, sin excepción escrita para GDELT."""
+    from datetime import datetime, timezone
+
+    from sqlalchemy import select
+
+    from atalaya.collect.collector import Collector
+    from atalaya.config import load_countries
+    from atalaya.db.models import Article, CollectRun, Reject
+
+    payload = {"articles": [
+        {"url": "https://www.eluniversal.com.mx/deportes/chivas-gana/",
+         "title": "Chivas gana el clásico nacional",
+         "seendate": datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")},
+    ]}
+
+    _marcar_probada(db, "api.gdeltproject.org", "GDELT 2.0")
+    run = CollectRun(kind="daily", started_at=datetime.now(timezone.utc))
+    db.add(run)
+    db.flush()
+
+    col = Collector(db, fetcher=_FetcherFalso({
+        "api.gdeltproject.org": _RespuestaFalsa(datos=payload)}))
+    col._daily_gdelt(run, load_countries()["MX"], window=26.0)
+    db.commit()
+
+    assert db.scalar(select(Article)) is None            # deportes: fuera
+    rej = db.scalar(select(Reject))
+    assert rej is not None and "deportes" in rej.reason  # y con su motivo
