@@ -190,3 +190,45 @@ def test_las_rutas_rechazadas_se_exponen_para_diagnostico():
 def test_las_rutas_rechazadas_no_se_repiten():
     html = '<a href="/x/">Un enlace repetido tres veces en la portada</a>' * 3
     assert Collector._rejected_paths("https://x.com/", html, "x.com") == ["/x/"]
+
+
+# ── el titular no siempre es el texto del enlace ─────────────────────────
+# ABC Color y Última Hora daban cero artículos pese a enlazarlos con URL
+# perfectamente válidas: sus portadas envuelven el titular en una imagen,
+# así que el enlace no tiene texto propio. El título vive en `title`,
+# `aria-label` o el `alt` de la imagen.
+
+NOTA = "/deportes/2026/08/16/cerro-porteno-vs-san-lorenzo-en-la-olla/"
+
+
+def _uno(html: str):
+    return Collector._article_links_from_html("https://www.abc.com.py/", html,
+                                              "abc.com.py")
+
+
+def test_el_titular_se_recupera_del_alt_de_la_imagen():
+    r = _uno(f'<a href="{NOTA}"><img src="x.jpg" '
+             f'alt="Cerro Porteño vs San Lorenzo: propuesta matinal"></a>')
+    assert r and r[0][1] == "Cerro Porteño vs San Lorenzo: propuesta matinal"
+
+
+def test_el_titular_se_recupera_del_atributo_title():
+    r = _uno(f'<a href="{NOTA}" title="Cerro Porteño vs San Lorenzo en la Olla">'
+             f'<img src="x.jpg"></a>')
+    assert r and "Cerro Porteño" in r[0][1]
+
+
+def test_el_titular_se_recupera_de_aria_label():
+    r = _uno(f'<a class="card" aria-label="Cerro Porteño vs San Lorenzo hoy en '
+             f'la Olla" href="{NOTA}"><span></span></a>')
+    assert r and "Cerro Porteño" in r[0][1]
+
+
+def test_el_texto_del_enlace_sigue_teniendo_prioridad():
+    r = _uno(f'<a href="{NOTA}" title="Etiqueta genérica del sitio web ABC">'
+             f'Cerro Porteño vs San Lorenzo: propuesta matinal en la Olla</a>')
+    assert r and r[0][1].startswith("Cerro Porteño vs San Lorenzo: propuesta")
+
+
+def test_un_enlace_de_menu_sigue_descartado_aunque_tenga_title():
+    assert _uno('<a href="/deportes" title="Deportes">Deportes</a>') == []

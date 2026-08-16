@@ -173,8 +173,30 @@ class Collector:
     # protección anti-robot. Si la portada nos bloquea, se acabó.
     _MAX_INDEX_ARTICLES = 25
 
-    _LINK_RE = re.compile(r'<a[^>]+href=["\']([^"\']+)["\'][^>]*>(.*?)</a>', re.I | re.S)
+    _LINK_RE = re.compile(r"<a\b([^>]*)>(.*?)</a>", re.I | re.S)
+    _HREF_RE = re.compile(r'href=["\']([^"\']+)["\']', re.I)
     _TAG_RE = re.compile(r"<[^>]+>")
+    # Muchas portadas envuelven el titular en una imagen: el enlace no tiene
+    # texto propio y el título vive en `title`, `aria-label` o el `alt` de la
+    # imagen. Sin esto, ABC Color y Última Hora daban cero artículos pese a
+    # enlazarlos con URL perfectamente válidas.
+    _LABEL_RE = re.compile(r'(?:title|aria-label)=["\']([^"\']+)["\']', re.I)
+    _IMG_ALT_RE = re.compile(r'<img[^>]+alt=["\']([^"\']+)["\']', re.I)
+
+    _MIN_TITLE = 25          # por debajo: menús, «Leer más», iconos
+
+    @classmethod
+    def _link_title(cls, attrs: str, inner: str) -> str:
+        """Titular de un enlace: su texto, o las etiquetas si no tiene."""
+        for candidate in (inner, cls._LABEL_RE.search(attrs),
+                          cls._IMG_ALT_RE.search(inner)):
+            raw = candidate if isinstance(candidate, str) else (
+                candidate.group(1) if candidate else "")
+            text = unescape(cls._TAG_RE.sub(" ", raw))
+            text = re.sub(r"\s+", " ", text).strip()
+            if len(text) >= cls._MIN_TITLE:
+                return text
+        return ""
 
     @classmethod
     def _article_links_from_html(cls, page_url: str, html: str,
@@ -188,11 +210,14 @@ class Collector:
         out: list[tuple[str, str]] = []
         seen: set[str] = set()
         for m in cls._LINK_RE.finditer(html):
-            title = unescape(cls._TAG_RE.sub(" ", m.group(2)))
-            title = re.sub(r"\s+", " ", title).strip()
-            if len(title) < 25:            # menús, «Leer más», iconos
+            attrs, inner = m.group(1), m.group(2)
+            href = cls._HREF_RE.search(attrs)
+            if not href:
                 continue
-            url = urljoin(page_url, m.group(1).strip()).split("#")[0]
+            title = cls._link_title(attrs, inner)
+            if not title:
+                continue
+            url = urljoin(page_url, href.group(1).strip()).split("#")[0]
             if not url.startswith(("http://", "https://")):
                 continue
             if norm_domain(url) != domain:  # nada de enlaces salientes
@@ -219,7 +244,10 @@ class Collector:
         out: list[str] = []
         kept = {u for u, _ in cls._article_links_from_html(page_url, html, domain)}
         for m in cls._LINK_RE.finditer(html):
-            href = m.group(1).strip()
+            found = cls._HREF_RE.search(m.group(1))
+            if not found:
+                continue
+            href = found.group(1).strip()
             # Plantillas Mustache/Handlebars sin compilar: la portada se
             # construye en el navegador. No son rutas, son marcadores.
             if "{{" in href:
