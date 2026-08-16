@@ -88,7 +88,11 @@ def gdelt_query(country_name: str, keywords: list[str], lang: str = "es",
     local, y su texto no es resumible en español de forma extractiva.
     """
     terms = " OR ".join(f'"{k}"' for k in keywords[:8])
-    idioma = (langs or _GDELT_LANGS).get(lang)
+    # `{}` es una elección explícita —quitar el filtro—, no «no dijeron
+    # nada»: un dict vacío es falso en Python y caía en el valor por
+    # defecto, así que vaciarlo en config no servía de nada.
+    mapa = _GDELT_LANGS if langs is None else langs
+    idioma = mapa.get(lang)
     filtro = f" sourcelang:{idioma}" if idioma else ""
     return f'({terms}) "{country_name}"{filtro}'
 
