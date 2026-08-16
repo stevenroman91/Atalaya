@@ -170,5 +170,10 @@
   "cov_blocked_n": "closed to us",
   "admin_probing_apis": "API test started — three requests, a few seconds. Reload this page: the result appears just below, and also in «Coverage by country».",
   "cov_api_fallando": "tested, but the last attempt failed",
-  "admin_probe_busy": "A diagnostic is already running. Wait for it: launching two doubles the requests to the same sites — that is how GDELT answered us 429."
+  "admin_probe_busy": "A diagnostic is already running. Wait for it: launching two doubles the requests to the same sites — that is how GDELT answered us 429.",
+  "cov_fl_con": "with feed",
+  "cov_fl_sin": "no feed",
+  "cov_fl_configurado": "verified feed",
+  "cov_fl_autodescubierto": "auto-discovered feed",
+  "cov_clear": "clear filter"
 }

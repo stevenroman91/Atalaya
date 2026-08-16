@@ -170,5 +170,10 @@
   "cov_blocked_n": "fermées pour nous",
   "admin_probing_apis": "Test des API lancé — trois requêtes, quelques secondes. Recharge cette page : le résultat s'affiche juste en dessous, et aussi dans « Couverture par pays ».",
   "cov_api_fallando": "testée, mais le dernier essai a échoué",
-  "admin_probe_busy": "Un diagnostic est déjà en cours. Attends qu'il finisse : en lancer deux double les requêtes vers les mêmes sites — c'est comme ça que GDELT nous a répondu 429."
+  "admin_probe_busy": "Un diagnostic est déjà en cours. Attends qu'il finisse : en lancer deux double les requêtes vers les mêmes sites — c'est comme ça que GDELT nous a répondu 429.",
+  "cov_fl_con": "avec flux",
+  "cov_fl_sin": "sans flux",
+  "cov_fl_configurado": "flux vérifié",
+  "cov_fl_autodescubierto": "flux autodécouvert",
+  "cov_clear": "retirer le filtre"
 }

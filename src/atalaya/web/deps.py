@@ -52,7 +52,10 @@ def render(request: Request, template: str, user: User | None = None,
            csrf: str | None = None, **context):
     lang = user.lang if user else "es"
     t = translator(lang)
+    from atalaya.web.routes.events_qs import with_params
+
     return templates.TemplateResponse(request, template, {
         "t": t, "lang": lang, "user": user, "csrf_token": csrf or "",
-        "countries": load_countries(), "zones": zone_by_id(), **context,
+        "countries": load_countries(), "zones": zone_by_id(),
+        "with_params": with_params, **context,
     })

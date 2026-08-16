@@ -105,7 +105,31 @@ ORDER = {"dns": 0, "inalcanzable": 1, "bloqueada": 2, "tls": 3, "sin_datos": 4,
 ACCIONABLE = ("dns", "inalcanzable", "tls", "sin_datos")
 
 
-def coverage_blocks(db: Session, codes: list[str] | None = None) -> list[dict]:
+# Agrupaciones que el analista ya lee en los contadores: poder filtrar por
+# ellas es poder pinchar en la cifra que le interesa.
+GRUPOS = {
+    "revisar": ACCIONABLE,
+    "cerradas": ("bloqueada", "robots"),
+}
+
+
+def _pasa_filtros(fila: dict, estado: str | None, flujo: str | None) -> bool:
+    if estado:
+        permitidos = GRUPOS.get(estado, (estado,))
+        if fila["estado"] not in permitidos:
+            return False
+    if flujo == "con" and not fila["rss"]:
+        return False
+    if flujo == "sin" and fila["rss"]:
+        return False
+    if flujo in ("configurado", "autodescubierto") and fila["rss_origen"] != flujo:
+        return False
+    return True
+
+
+def coverage_blocks(db: Session, codes: list[str] | None = None,
+                    estado: str | None = None,
+                    flujo: str | None = None) -> list[dict]:
     """Cobertura por país, para los países pedidos (todos si no se dice).
 
     Vive en el panel, al pie de la lista de eventos y filtrada por el país
@@ -165,7 +189,11 @@ def coverage_blocks(db: Session, codes: list[str] | None = None) -> list[dict]:
             cubo = listas.get((src.domain, code), {})
             retenidos = cubo.get("kept", [])
             descartados = cubo.get("rejected", [])
-            estado, detalle = _verdict(rec, len(retenidos), len(descartados))
+            # OJO: no llamar `estado` a esta variable — es el nombre del
+            # parámetro de filtro de la función, y reasignarlo dejaba el
+            # filtro con el veredicto de la última fuente del bucle. La
+            # tabla salía vacía sin que nada fallara.
+            veredicto, detalle = _verdict(rec, len(retenidos), len(descartados))
             filas.append({
                 "name": src.name, "domain": src.domain, "type": src.type,
                 "alcance": "regional" if "*" in src.covers else "nacional",
@@ -175,7 +203,7 @@ def coverage_blocks(db: Session, codes: list[str] | None = None) -> list[dict]:
                 "kept": len(retenidos), "rejected": len(descartados),
                 "articulos": retenidos[:PER_SOURCE],
                 "descartados": descartados[:PER_SOURCE],
-                "estado": estado, "detalle": detalle,
+                "estado": veredicto, "detalle": detalle,
                 "probe_note": rec.probe_note if rec else None,
                 "probe_at": rec.probe_at if rec else None,
                 "last_ok": rec.last_ok_at if rec else None,
@@ -183,9 +211,14 @@ def coverage_blocks(db: Session, codes: list[str] | None = None) -> list[dict]:
                 "home": f"https://{src.domain}/",
             })
         filas.sort(key=lambda r: (ORDER[r["estado"]], -r["kept"], r["name"]))
+        # Los contadores se calculan SIEMPRE sobre todas las fuentes: son la
+        # realidad del país. Filtrar la tabla no debe cambiar la verdad que
+        # se anuncia encima de ella — solo lo que se muestra.
+        visibles = [r for r in filas if _pasa_filtros(r, estado, flujo)]
         bloques.append({
             "code": code, "name": country.name,
-            "rows": filas,
+            "rows": visibles,
+            "shown": len(visibles), "filtrado": len(visibles) != len(filas),
             "events": events.get(code, 0),
             "produce": sum(1 for r in filas if r["estado"] == "produce"),
             "revisar": sum(1 for r in filas if r["estado"] in ACCIONABLE),

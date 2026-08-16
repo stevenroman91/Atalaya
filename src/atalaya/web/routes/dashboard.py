@@ -58,6 +58,7 @@ def dashboard(request: Request,
               level: str | None = None, type: str | None = None,
               date_from: str | None = None, date_to: str | None = None,
               q: str | None = None, scope: str | None = None,
+              cov_estado: str | None = None, cov_flujo: str | None = None,
               user_sess=Depends(current_user), db: Session = Depends(get_db)):
     user, sess = user_sess
     f = _filters_from_query(user, country, zone, category, level, type,
@@ -76,7 +77,9 @@ def dashboard(request: Request,
     # Transparence de couverture (§7): qué se consultó de verdad, sobre los
     # MISMOS filtros que la lista. Antes era una tira de nombres sin cifras
     # ni enlaces; luego una página aparte, que repetía pestañas y filtros.
-    cobertura = coverage_blocks(db, f.countries or None)
+    cobertura = coverage_blocks(db, f.countries or None,
+                                estado=cov_estado or None,
+                                flujo=cov_flujo or None)
     user.last_seen_at = utcnow()      # marcador «nuevo» por cuenta
     db.commit()
 

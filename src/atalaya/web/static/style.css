@@ -528,3 +528,9 @@ details.coverage {
 details.coverage > summary { font-size: .95rem; }
 details.coverage table { font-size: .84rem; }
 details.coverage td.links { min-width: 240px; }
+/* Filtros propios de la cobertura: compactos, no compiten con los del panel. */
+.covfilter { margin: .5rem 0 .8rem; align-items: flex-end; gap: .6rem; }
+.covfilter label { font-size: .78rem; }
+.covfilter select { font-size: .82rem; padding: .3rem .5rem; }
+.covjump { display: flex; gap: 1rem; flex-wrap: wrap; margin: .2rem 0 .6rem; font-size: .82rem; }
+.covjump a { text-decoration: underline; text-underline-offset: 2px; }

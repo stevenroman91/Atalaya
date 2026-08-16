@@ -563,3 +563,54 @@ def test_el_resultado_de_probar_las_api_se_ve_donde_se_pulsa(db):
 
     assert "USGS" in page.text
     assert "M 5.4" in page.text
+
+
+# ── filtrar la cobertura por estado y por flujo ──────────────────────────
+def test_la_cobertura_se_filtra_por_estado(db):
+    from atalaya.db.models import SourceRecord
+    from atalaya.web.routes.coverage import coverage_blocks
+
+    db.add(SourceRecord(domain="milenio.com", name="Milenio",
+                        consecutive_failures=3,
+                        last_error="sin flujo; el sitio nos responde 403"))
+    db.add(SourceRecord(domain="ntrzacatecas.com", name="NTR Zacatecas",
+                        consecutive_failures=3,
+                        last_error="sin flujo; portada sin artículos legibles"))
+    db.commit()
+
+    todo = coverage_blocks(db, ["MX"])[0]
+    revisar = coverage_blocks(db, ["MX"], estado="revisar")[0]
+    cerradas = coverage_blocks(db, ["MX"], estado="cerradas")[0]
+
+    assert {r["name"] for r in cerradas["rows"]} == {"Milenio"}     # el 403
+    assert "NTR Zacatecas" in {r["name"] for r in revisar["rows"]}
+    assert "Milenio" not in {r["name"] for r in revisar["rows"]}
+    # los contadores no mienten: siguen contando TODAS las fuentes del país
+    assert revisar["total"] == todo["total"]
+    assert revisar["filtrado"] is True and todo["filtrado"] is False
+
+
+def test_la_cobertura_se_filtra_por_flujo(db):
+    from atalaya.web.routes.coverage import coverage_blocks
+
+    con = coverage_blocks(db, ["MX"], flujo="con")[0]
+    sin = coverage_blocks(db, ["MX"], flujo="sin")[0]
+
+    assert all(r["rss"] for r in con["rows"])
+    assert all(not r["rss"] for r in sin["rows"])
+    assert len(con["rows"]) + len(sin["rows"]) == con["total"]
+
+
+def test_el_contador_a_revisar_a_mano_es_un_enlace(db):
+    """«7 a revisar a mano» sin pouvoir cliquer oblige à lire vingt lignes."""
+    from atalaya.db.models import SourceRecord
+
+    db.add(SourceRecord(domain="ntrzacatecas.com", name="NTR Zacatecas",
+                        consecutive_failures=3,
+                        last_error="sin flujo; portada sin artículos legibles"))
+    db.commit()
+
+    client, cookie = _admin_client(db)
+    page = client.get("/dashboard", cookies=cookie)
+
+    assert "cov_estado=revisar" in page.text
