@@ -185,5 +185,13 @@
   "admin_reclassify_hint": "«Reclasificar con el modelo» pregunta al clasificador si cada evento del panel es un hecho de seguridad y de qué tipo. No borra nada: lo ajeno baja a nota con su motivo a la vista.",
   "cat_no_securitario": "fuera del ámbito de seguridad",
   "badge_pending": "POR CONFIRMAR",
-  "counter_nonsec": "Ajenos a la seguridad"
+  "counter_nonsec": "Ajenos a la seguridad",
+  "doubt_title": "Clasificación dudosa — decide el analista",
+  "doubt_count": "eventos marcados",
+  "doubt_hint": "El clasificador propuso otra etiqueta pero no la sostiene con seguridad (menos de {umbral} %). Su propuesta NO se ha aplicado: el evento conserva su etiqueta actual hasta que alguien decida.",
+  "doubt_event": "Evento",
+  "doubt_now": "Etiqueta actual",
+  "doubt_proposal": "Propuesta del modelo",
+  "doubt_why": "Motivo",
+  "doubt_confidence": "confianza"
 }

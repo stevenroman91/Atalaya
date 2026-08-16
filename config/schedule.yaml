@@ -48,3 +48,8 @@ classifier:
   # Techo por colecta: protege la factura si un día el filtrado aguas arriba
   # falla y llegan mil clusters en vez de treinta.
   max_events: 120
+  # Por debajo de esta confianza el veredicto NO se aplica: el evento se
+  # marca y aparece en «Clasificación dudosa», al pie del panel, para que
+  # el analista decida. Alto a propósito: un modelo que se equivoca con
+  # aplomo cuesta más caro que uno que duda en voz alta.
+  confidence_threshold: 0.9

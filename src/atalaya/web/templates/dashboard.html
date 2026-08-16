@@ -165,6 +165,41 @@
   </aside>
 </div>
 
+{# Clasificación dudosa: el modelo propuso algo sin sostenerlo con
+   seguridad, así que NO se ha aplicado. Trancher n'est pas notre rôle,
+   exposer l'incertitude l'est — aquí está lo que proponía, con qué certeza
+   y por qué, para que el analista decida. #}
+{% if dudosos %}
+<details class="panel coverage" open>
+  <summary>
+    <strong>{{ t('doubt_title') }}</strong>
+    <span class="muted small">{{ dudosos|length }} {{ t('doubt_count') }}</span>
+  </summary>
+  <p class="section-hint">{{ t('doubt_hint', umbral=(umbral * 100) | round | int) }}</p>
+  <div class="tablewrap"><table>
+    <thead><tr>
+      <th>{{ t('doubt_event') }}</th><th>{{ t('doubt_now') }}</th>
+      <th>{{ t('doubt_proposal') }}</th><th>{{ t('doubt_why') }}</th>
+    </tr></thead>
+    <tbody>
+    {% for d in dudosos %}
+    <tr class="cov cov-sin_material">
+      <td><strong>{{ d.event.title[:120] }}</strong><br>
+        <span class="muted small">{{ d.event.country_name }}{% if d.event.occurred_at %} · {{ d.event.occurred_at }}{% endif %}</span>
+        <br>{% for s in d.event.sources %}<a href="{{ s.url }}" class="small" target="_blank" rel="noopener">{{ s.name }}</a>{{ ", " if not loop.last }}{% endfor %}
+      </td>
+      <td><span class="tag">{{ t('cat_' + d.actual) if d.actual else '—' }}</span>
+        <br><span class="muted small">{{ t('event_type_' + d.event.event_type) }}</span></td>
+      <td><span class="tag warn">{{ t('cat_' + d.propuesta) if d.propuesta else '—' }}</span>
+        <br><span class="muted small">{{ t('doubt_confidence') }} {{ (d.confianza * 100) | round | int if d.confianza is not none else '?' }} %</span></td>
+      <td class="small">{{ d.motivo or '—' }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</details>
+{% endif %}
+
 {# Cobertura: no una página aparte —eso duplicaba pestañas y filtros—
    sino una sección al pie, sobre los mismos filtros que la lista. #}
 {% for b in cobertura %}

@@ -23,11 +23,17 @@ def veredictos(monkeypatch):
 
     def falso(title, summary, country_name):
         llamadas.append((title, summary, country_name))
+        if "dudoso" in title.lower():
+            return {"es_seguridad": False, "categoria": "no_securitario",
+                    "motivo": "podría ser un hecho de seguridad, no está claro",
+                    "confianza": 0.55, "dudoso": True}
         if "llorar" in title.lower() or "virgen" in title.lower():
             return {"es_seguridad": False, "categoria": "no_securitario",
-                    "motivo": "espectáculos; no afecta a la seguridad"}
+                    "motivo": "espectáculos; no afecta a la seguridad",
+                    "confianza": 0.97, "dudoso": False}
         return {"es_seguridad": True, "categoria": "crimen_alto_impacto",
-                "motivo": "violencia armada con víctimas"}
+                "motivo": "violencia armada con víctimas",
+                "confianza": 0.95, "dudoso": False}
 
     monkeypatch.setattr(classifier, "backend", lambda: "claude")
     monkeypatch.setattr(classifier, "classify", falso)
@@ -284,3 +290,93 @@ def test_una_respuesta_truncada_no_se_intenta_parsear(monkeypatch):
         assert c.classify("t", "s", "México") is None
     finally:
         sys.modules.pop("anthropic", None)
+
+
+# ── el umbral de confianza: 0,9 ──────────────────────────────────────────
+# Decisión del operador. Alto a propósito: un modelo que se equivoca con
+# aplomo cuesta más caro que uno que duda en voz alta — y aquí dudar tiene
+# una salida prevista, el analista.
+
+def test_un_veredicto_dudoso_se_marca_pero_no_se_aplica(db, veredictos):
+    from atalaya.db.models import EventStatus
+    from atalaya.process.pipeline import reclassify_events
+
+    run = _run(db)
+    ev = Event(run_id=run.id, dedup_key="k-dudoso", country="MX",
+               title_es="Caso dudoso: hallan un cuerpo en circunstancias confusas",
+               summary_es="Las autoridades no precisaron las causas.",
+               summary_version="v", event_type="ALERTA",
+               category="crimen_alto_impacto", level="advertencia",
+               status=EventStatus.published.value,
+               recurrence=2, independent_sources=2, has_state_media=False)
+    db.add(ev)
+    db.commit()
+
+    stats = reclassify_events(db)
+
+    db.refresh(ev)
+    assert stats["dudosos"] == 1
+    assert stats["reclassified"] == 0
+    assert ev.category == "crimen_alto_impacto"      # la etiqueta NO cambia
+    assert ev.event_type == "ALERTA"
+    assert ev.score_detail["clasificador"]["dudoso"] is True
+
+
+def test_el_dudoso_aparece_en_su_seccion_con_la_propuesta(db, veredictos):
+    """Trancher n'est pas notre rôle, exposer l'incertitude l'est."""
+    from atalaya.db.models import EventStatus
+    from atalaya.process.pipeline import reclassify_events
+    from atalaya.web.events_view import EventFilters, doubtful_events
+
+    run = _run(db)
+    db.add(Event(run_id=run.id, dedup_key="k-dudoso2", country="MX",
+                 title_es="Caso dudoso: hallan un cuerpo",
+                 summary_es="Sin precisiones.", summary_version="v",
+                 event_type="ALERTA", category="crimen_alto_impacto",
+                 level="advertencia", status=EventStatus.published.value,
+                 recurrence=2, independent_sources=2, has_state_media=False))
+    db.commit()
+    reclassify_events(db)
+
+    filas = doubtful_events(db, EventFilters(countries=["MX"]))
+
+    assert len(filas) == 1
+    assert filas[0]["propuesta"] == "no_securitario"   # lo que proponía
+    assert filas[0]["actual"] == "crimen_alto_impacto"  # lo que conserva
+    assert filas[0]["confianza"] == 0.55
+    assert "no está claro" in filas[0]["motivo"]
+
+
+def test_sin_campo_de_confianza_se_trata_como_dudoso(monkeypatch):
+    """Una respuesta antigua en cache no debe aplicarse a ciegas: sin
+    confianza declarada, el lado prudente del error es dudar."""
+    import json as _json
+    import sys
+
+    from atalaya.process import classifier as c
+
+    monkeypatch.setattr(c, "backend", lambda: "claude")
+
+    class _Resp:
+        stop_reason = "end_turn"
+        content = [type("B", (), {"type": "text", "text": _json.dumps({
+            "es_seguridad": True, "categoria": "crimen_alto_impacto",
+            "motivo": "x"})})()]
+
+    class _Cliente:
+        class messages:
+            @staticmethod
+            def create(**kw):
+                return _Resp()
+
+    sys.modules["anthropic"] = type("m", (), {"Anthropic": lambda: _Cliente()})
+    try:
+        assert c.classify("t", "s", "México")["dudoso"] is True
+    finally:
+        sys.modules.pop("anthropic", None)
+
+
+def test_el_umbral_se_lee_de_la_config():
+    from atalaya.process.classifier import threshold
+
+    assert threshold() == 0.9

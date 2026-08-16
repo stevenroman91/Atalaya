@@ -185,5 +185,13 @@
   "admin_reclassify_hint": "« Reclasser avec le modèle » demande au classificateur si chaque événement du panneau est un fait de sécurité et de quel type. Rien n'est supprimé : ce qui est hors sujet descend en note avec son motif affiché.",
   "cat_no_securitario": "hors du champ de la sécurité",
   "badge_pending": "À CONFIRMER",
-  "counter_nonsec": "Hors sécurité"
+  "counter_nonsec": "Hors sécurité",
+  "doubt_title": "Classification douteuse — à l'analyste de trancher",
+  "doubt_count": "événements marqués",
+  "doubt_hint": "Le classificateur a proposé une autre étiquette sans la soutenir avec certitude (moins de {umbral} %). Sa proposition N'A PAS été appliquée : l'événement garde son étiquette actuelle jusqu'à ce que quelqu'un décide.",
+  "doubt_event": "Événement",
+  "doubt_now": "Étiquette actuelle",
+  "doubt_proposal": "Proposition du modèle",
+  "doubt_why": "Motif",
+  "doubt_confidence": "confiance"
 }

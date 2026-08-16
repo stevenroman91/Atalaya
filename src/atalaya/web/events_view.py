@@ -152,6 +152,33 @@ def counters(db: Session, f: EventFilters) -> dict:
     return out
 
 
+def doubtful_events(db: Session, f: EventFilters, lang: str = "es",
+                    tz: str = "UTC") -> list[dict]:
+    """Eventos cuya clasificación el modelo no sostiene con seguridad.
+
+    Su veredicto NO se ha aplicado: está aquí para que el analista lo lea y
+    decida. Es la doctrina del proyecto en una pantalla — no trancher, pero
+    exposer l'incertitude: se ve lo que el modelo proponía, con qué certeza
+    y por qué, junto a la etiqueta que el evento conserva mientras tanto.
+    """
+    out = []
+    for ev in query_events(db, replace(f, hide_nonsec=False), limit=200):
+        v = (ev.score_detail or {}).get("clasificador") or {}
+        if not v.get("dudoso"):
+            continue
+        loc = localize_event(ev, lang, tz)
+        out.append({
+            "event": loc,
+            "propuesta": v.get("categoria"),
+            "es_seguridad": v.get("es_seguridad"),
+            "confianza": v.get("confianza"),
+            "motivo": v.get("motivo"),
+            "actual": ev.category,
+        })
+    out.sort(key=lambda d: d["confianza"] if d["confianza"] is not None else 0)
+    return out
+
+
 def count_nonsec(db: Session, f: EventFilters) -> int:
     """Cuántos eventos visibles declaró el clasificador ajenos a la seguridad."""
     from sqlalchemy import func

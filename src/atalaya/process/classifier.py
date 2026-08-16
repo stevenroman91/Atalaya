@@ -52,8 +52,9 @@ _SCHEMA = {
             "enum": [c for c in CATEGORIES if c != "sin_clasificar"],
         },
         "motivo": {"type": "string", "maxLength": 160},
+        "confianza": {"type": "number", "minimum": 0, "maximum": 1},
     },
-    "required": ["es_seguridad", "categoria", "motivo"],
+    "required": ["es_seguridad", "categoria", "motivo", "confianza"],
     "additionalProperties": False,
 }
 
@@ -83,7 +84,13 @@ es_seguridad=true: un hecho real que el analista no ve cuesta más caro que \
 una etiqueta que puede corregir.
 - Si es_seguridad es false, categoria debe ser «no_securitario».
 - El motivo es una frase corta en español, factual, que cite lo que te hizo \
-decidir. Nada de juicios sobre el medio ni sobre las personas."""
+decidir. Nada de juicios sobre el medio ni sobre las personas.
+- La confianza es tu certeza real sobre AMBAS respuestas, de 0 a 1. Sé \
+honesto: por debajo de 0,9 tu veredicto no se aplica, se marca y lo decide \
+un analista humano. Baja la confianza cuando el titular es ambiguo, cuando \
+el resumen no basta, cuando el hecho está a caballo entre dos categorías, o \
+cuando dudarías si tuvieras que defender tu respuesta. Una confianza \
+inflada es peor que una baja: hace pasar por seguro lo que no lo es."""
 
 
 def backend() -> str:
@@ -95,6 +102,17 @@ def backend() -> str:
     if not load_schedule().get("classifier", {}).get("enabled", True):
         return "none"
     return "claude" if os.environ.get("ANTHROPIC_API_KEY") else "none"
+
+
+def threshold() -> float:
+    """Por debajo de esta confianza el veredicto se marca, no se aplica.
+
+    Decisión del operador: 0,9. Es alto a propósito — un modelo que se
+    equivoca con aplomo es más caro que uno que duda en voz alta, y aquí
+    dudar tiene una salida prevista: el analista.
+    """
+    return float(load_schedule().get("classifier", {})
+                 .get("confidence_threshold", 0.9))
 
 
 def fingerprint(title: str, summary: str | None) -> str:
@@ -146,4 +164,8 @@ def classify(title: str, summary: str | None, country_name: str) -> dict | None:
         verdict["categoria"] = NO_SECURITARIO
     elif verdict.get("categoria") == NO_SECURITARIO:
         verdict["es_seguridad"] = False
+    # Un veredicto poco seguro NO se aplica: se marca y lo decide el
+    # analista. Sin campo de confianza (respuesta antigua en cache), se
+    # trata como dudoso — es el lado prudente del error.
+    verdict["dudoso"] = float(verdict.get("confianza", 0.0)) < threshold()
     return verdict

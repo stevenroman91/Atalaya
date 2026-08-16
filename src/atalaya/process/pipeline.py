@@ -182,7 +182,7 @@ def reclassify_events(db: Session, limit: int = 200) -> dict:
     correcciones.
     """
     stats = {"classified": 0, "no_securitario": 0, "reclassified": 0,
-             "classifier_failed": 0, "classifier_cached": 0}
+             "classifier_failed": 0, "classifier_cached": 0, "dudosos": 0}
     if classifier.backend() == "none":
         stats["skipped_backend_none"] = 1
         return stats
@@ -197,6 +197,10 @@ def reclassify_events(db: Session, limit: int = 200) -> dict:
         if not veredicto:
             continue
         ev.score_detail = {**(ev.score_detail or {}), "clasificador": veredicto}
+        if veredicto.get("dudoso"):
+            stats["dudosos"] = stats.get("dudosos", 0) + 1
+            db.commit()
+            continue                  # marcado, no aplicado: decide el analista
         # «Pendiente de corroboración» sobre un hecho que el modelo declara
         # ajeno a la seguridad es una contradicción en la misma tarjeta: no
         # hay nada que corroborar. Pasa a nota publicada — sigue visible.
@@ -405,13 +409,16 @@ def process_daily(db: Session, run: CollectRun, countries_filter: list[str] | No
                                         title=rep.title, summary=summary,
                                         country=country.name, stats=stats)
             if veredicto:
-                category = veredicto["categoria"]
-                etype = classify_type(category, result.reasons["severity"])
                 result.reasons["clasificador"] = veredicto
-                if (not veredicto.get("es_seguridad")
-                        and status == EventStatus.pending_confirm.value):
-                    # nada que corroborar en un hecho ajeno a la seguridad
-                    status = EventStatus.published.value
+                # Dudoso: se guarda para que el analista lo vea y decida,
+                # pero no se aplica. Marcar y dejar pasar, nunca tirar.
+                if not veredicto.get("dudoso"):
+                    category = veredicto["categoria"]
+                    etype = classify_type(category, result.reasons["severity"])
+                    if (not veredicto.get("es_seguridad")
+                            and status == EventStatus.pending_confirm.value):
+                        # nada que corroborar en un hecho ajeno a la seguridad
+                        status = EventStatus.published.value
 
             recommendations = (
                 build_recommendations(category, place,

@@ -185,5 +185,13 @@
   "admin_reclassify_hint": "«Reclassificar com o modelo» pergunta ao classificador se cada evento do painel é um facto de segurança e de que tipo. Nada é apagado: o alheio desce a nota com o seu motivo à vista.",
   "cat_no_securitario": "fora do âmbito da segurança",
   "badge_pending": "A CONFIRMAR",
-  "counter_nonsec": "Alheios à segurança"
+  "counter_nonsec": "Alheios à segurança",
+  "doubt_title": "Classificação duvidosa — decide o analista",
+  "doubt_count": "eventos marcados",
+  "doubt_hint": "O classificador propôs outra etiqueta mas não a sustenta com segurança (menos de {umbral} %). A sua proposta NÃO foi aplicada: o evento mantém a etiqueta atual até alguém decidir.",
+  "doubt_event": "Evento",
+  "doubt_now": "Etiqueta atual",
+  "doubt_proposal": "Proposta do modelo",
+  "doubt_why": "Motivo",
+  "doubt_confidence": "confiança"
 }

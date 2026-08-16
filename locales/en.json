@@ -185,5 +185,13 @@
   "admin_reclassify_hint": "«Reclassify with the model» asks the classifier whether each panel event is a security fact and of what type. Nothing is deleted: off-topic items drop to a note with their reason shown.",
   "cat_no_securitario": "outside the security scope",
   "badge_pending": "TO CONFIRM",
-  "counter_nonsec": "Outside security"
+  "counter_nonsec": "Outside security",
+  "doubt_title": "Doubtful classification — the analyst decides",
+  "doubt_count": "flagged events",
+  "doubt_hint": "The classifier proposed another label but does not hold it with confidence (below {umbral} %). Its proposal was NOT applied: the event keeps its current label until someone decides.",
+  "doubt_event": "Event",
+  "doubt_now": "Current label",
+  "doubt_proposal": "Model proposal",
+  "doubt_why": "Reason",
+  "doubt_confidence": "confidence"
 }

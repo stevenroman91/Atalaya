@@ -14,10 +14,11 @@ from atalaya.db.models import EventStatus, utcnow
 from atalaya.web.deps import current_user, get_db, render, templates
 from atalaya.web.events_view import (
     EventFilters, count_nonsec, counters, country_tabs, default_filters_for,
-    localize_event, query_events, timeline,
+    doubtful_events, localize_event, query_events, timeline,
 )
 from atalaya.web.i18n import translator
 from atalaya.web.routes.coverage import WINDOW_HOURS as COVERAGE_WINDOW
+from atalaya.process.classifier import threshold as classifier_threshold
 from atalaya.web.routes.coverage import coverage_blocks
 
 router = APIRouter()
@@ -91,6 +92,8 @@ def dashboard(request: Request,
                   events=events, stats=stats, timeline=tl, f=f,
                   cobertura=cobertura, window_hours=COVERAGE_WINDOW,
                   nonsec=count_nonsec(db, f),
+                  dudosos=doubtful_events(db, f, user.lang, user.timezone),
+                  umbral=classifier_threshold(),
                   tabs=country_tabs(db, f, query, list(user.countries or [])),
                   query=query)
 
