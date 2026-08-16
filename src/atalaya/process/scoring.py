@@ -55,14 +55,43 @@ def independent_source_count(articles: list[Article]) -> tuple[int, int, bool]:
     return total, independent, state > 0
 
 
-def severity_signals(cluster: Cluster, lang: str) -> dict:
-    hay = " ".join(
-        normalize(f"{a.title} {(a.text or '')[:1500]}") for a in cluster.articles
+# El titular y la entradilla dicen de qué va la noticia; el cuerpo menciona
+# todo lo demás. Leer 1500 caracteres de cuerpo hacía que cualquier crónica
+# venezolana que nombrara de pasada el terremoto de junio —y las nombran
+# todas— puntuara como gravedad extrema.
+_LEDE = 400
+
+
+def _titulares(cluster: Cluster) -> str:
+    return " ".join(normalize(article_title(a)) for a in cluster.articles)
+
+
+def _entradillas(cluster: Cluster) -> str:
+    return " ".join(
+        normalize(f"{article_title(a)} {(a.text or '')[:_LEDE]}")
+        for a in cluster.articles
     )
+
+
+def severity_signals(cluster: Cluster, lang: str) -> dict:
+    """Señales de gravedad, leídas donde la prensa las pone.
+
+    La gravedad extrema se exige EN EL TITULAR. Es la señal que basta por sí
+    sola para publicar con una única fuente («a confirmar»), así que su
+    listón debe ser el más alto de todos: un artículo que menciona un
+    terremoto en su decimoquinta línea no es un terremoto.
+
+    Panel real del 16/08: «Reconstruir el salario mínimo», «Diócesis de
+    Guanare anunció la agenda de la Virgen de Coromoto», «Miltico llega a
+    La Gran Sabana» — veintiséis tarjetas de este tipo, todas por el mismo
+    mecanismo.
+    """
+    titulares = _titulares(cluster)
+    entradillas = _entradillas(cluster)
     return {
-        "physical_harm": _hit_terms(hay, _kw("severity", "physical_harm", lang)),
-        "modus_operandi": _hit_terms(hay, _kw("severity", "modus_operandi", lang)),
-        "extreme": _hit_terms(hay, _kw("severity", "extreme", lang)),
+        "physical_harm": _hit_terms(entradillas, _kw("severity", "physical_harm", lang)),
+        "modus_operandi": _hit_terms(entradillas, _kw("severity", "modus_operandi", lang)),
+        "extreme": _hit_terms(titulares, _kw("severity", "extreme", lang)),
     }
 
 
@@ -107,8 +136,13 @@ def classify_category(cluster: Cluster, lang: str) -> str:
     categoría es peor que confesar que no la hay: el analista ve el hecho
     igualmente —nada se descarta— pero sabe que la etiqueta no es nuestra.
     """
-    hay = " ".join(normalize(f"{article_title(a)} {(a.text or '')[:800]}")
-                   for a in cluster.articles)
+    # Una sola pasada, sobre titular + entradilla. Probé dos pasadas —
+    # titulares primero, cuerpo después— y rompía el caso del autocar:
+    # «Acidente com ônibus deixa ao menos 12 mortos» encuentra «mortos» en
+    # el titular y se clasificaba como crimen antes de que el cuerpo
+    # («tombou») pudiera decir que es un accidente. Una regla en dos
+    # tiempos con prioridades cruzadas es imposible de predecir.
+    hay = _entradillas(cluster)
     kws = load_keywords()["categories"]
     for cat, langs in kws.items():   # orden del YAML = prioridad
         if _hit_terms(hay, langs.get(lang, langs.get("es", []))):
@@ -117,7 +151,7 @@ def classify_category(cluster: Cluster, lang: str) -> str:
 
 
 def classify_level(cluster: Cluster, lang: str) -> str:
-    hay = " ".join(normalize(f"{a.title} {(a.text or '')[:800]}") for a in cluster.articles)
+    hay = _entradillas(cluster)
     kws = load_keywords()["level_advertencia"]
     hits = _hit_terms(hay, kws.get(lang, kws.get("es", [])))
     return "advertencia" if hits else "informativo"

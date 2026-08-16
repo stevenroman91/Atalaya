@@ -180,3 +180,57 @@ def test_dos_medios_sobre_el_mismo_hecho_siguen_agrupandose():
     a.id, b.id = 3, 4
 
     assert len(cluster_articles([a, b])) == 1
+
+
+# ── el panel del 16/08: 26 tarjetas «a confirmar», presque toutes du bruit ─
+# Toutes par le même mécanisme : severity_signals lisait 1500 caractères de
+# corps. Au Venezuela, toute chronique nomme le séisme du 24 juin quelque
+# part — donc tout devenait « gravité extrême », donc tout se publiait avec
+# une seule source. Une info n'est pas ce que son quinzième paragraphe
+# mentionne.
+
+def _cl(titulo, texto=""):
+    from atalaya.process.cluster import Cluster
+    return Cluster(articles=[_brart(titulo, texto)])
+
+
+def test_una_mencion_de_paso_no_es_gravedad_extrema():
+    from atalaya.process.scoring import severity_signals
+
+    cl = _cl("Miltico llega a La Gran Sabana: la cicloaventura que conmovió",
+             "Después de más de 40 días de viaje y unos 1.500 kilómetros en "
+             "bicicleta, el joven llegó a la Gran Sabana. " + "x" * 600 +
+             " Por la emergencia del doble terremoto que golpeó a Venezuela, "
+             "Miltico detuvo su ruta.")
+
+    assert severity_signals(cl, "es")["extreme"] == []
+
+
+def test_un_terremoto_en_el_titular_sigue_siendo_extremo():
+    from atalaya.process.scoring import severity_signals
+
+    cl = _cl("Terremoto de magnitud 6.8 sacude la costa de Guerrero",
+             "El sismo se sintió en varios estados.")
+
+    assert severity_signals(cl, "es")["extreme"] == ["terremoto"]
+
+
+def test_una_cronica_economica_no_se_vuelve_desastre_natural():
+    from atalaya.process.scoring import classify_category
+
+    cl = _cl("Reconstruir el salario mínimo es otra tarea pendiente",
+             "El salario mínimo lleva cuatro años anclado en 130 bolívares, "
+             "hoy apenas equivale a 0,17 centavos de dólar por mes.")
+
+    assert classify_category(cl, "es") == "sin_clasificar"
+
+
+def test_un_ataque_a_tiros_es_crimen_de_alto_impacto():
+    """Salió como «manifestación» en el panel real."""
+    from atalaya.process.scoring import classify_category
+
+    cl = _cl("Ataque a tiros en Alto de Los Lagos deja un hombre herido",
+             "El hecho de violencia se dio en los predios de la torre "
+             "habitacional H-112, pasadas las 2:30 a. m.")
+
+    assert classify_category(cl, "es") == "crimen_alto_impacto"

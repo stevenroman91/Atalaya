@@ -101,8 +101,8 @@ categories:
   crimen_alto_impacto:
     es: [homicidio, asesinato, balacera, tiroteo, feminicidio, masacre, ejecutado,
          secuestro, atentado, "cuerpo hallado", cadáver, muertos, muerto,
-         "ataque armado", "disparos", "hombres armados", apuñalado, linchamiento,
-         levantón, granada, "sujetos armados"]
+         "ataque armado", "ataque a tiros", "disparos", "hombres armados",
+         apuñalado, linchamiento, levantón, granada, "sujetos armados"]
     pt: [homicídio, assassinato, tiroteio, chacina, feminicídio, sequestro,
          atentado, corpo, mortos, morto, "ataque a tiros", disparos,
          "homens armados", esfaqueado, linchamento, granada]
