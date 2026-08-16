@@ -87,7 +87,14 @@ def gdelt_query(country_name: str, keywords: list[str], lang: str = "es",
     bursátiles en inglés que mencionan México de pasada. No son prensa
     local, y su texto no es resumible en español de forma extractiva.
     """
-    terms = " OR ".join(f'"{k}"' for k in keywords[:8])
+    # GDELT rechaza toda la consulta si un solo término es demasiado corto:
+    # «The specified phrase is too short.» El culpable era «robo», cuatro
+    # letras. Se descartan aquí en vez de mutilar keywords.yaml, que sirve
+    # también a Google News, donde «robo» funciona perfectamente.
+    utiles = [k for k in keywords if len(k) >= _GDELT_MIN_TERM]
+    if not utiles:
+        return f'"{country_name}"'
+    terms = " OR ".join(f'"{k}"' for k in utiles[:8])
     # `{}` es una elección explícita —quitar el filtro—, no «no dijeron
     # nada»: un dict vacío es falso en Python y caía en el valor por
     # defecto, así que vaciarlo en config no servía de nada.
@@ -96,6 +103,10 @@ def gdelt_query(country_name: str, keywords: list[str], lang: str = "es",
     filtro = f" sourcelang:{idioma}" if idioma else ""
     return f'({terms}) "{country_name}"{filtro}'
 
+
+# Longitud mínima de un término para GDELT. Por debajo rechaza la consulta
+# entera, no el término: una palabra de cuatro letras tumbaba las diez.
+_GDELT_MIN_TERM = 5
 
 # Cómo nombra GDELT las lenguas. Editable en apis.yaml sin tocar código: no
 # tenemos forma de verificar su sintaxis desde el entorno de desarrollo, y

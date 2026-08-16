@@ -369,3 +369,31 @@ def test_reliefweb_esta_apagada_por_robots_txt():
     from atalaya.config import load_apis
 
     assert load_apis()["reliefweb"]["enabled"] is False
+
+
+def test_gdelt_descarta_los_terminos_demasiado_cortos():
+    """Prueba real: «The specified phrase is too short.» — GDELT rechaza la
+    consulta ENTERA si un solo término baja de cinco caracteres. El culpable
+    era «robo». No se toca keywords.yaml: en Google News «robo» funciona."""
+    q = gdelt_query("México", ["homicidio", "robo", "balacera"])
+
+    assert '"robo"' not in q
+    assert '"homicidio"' in q and '"balacera"' in q
+
+
+def test_sin_ningun_termino_valido_la_consulta_sigue_siendo_valida():
+    q = gdelt_query("México", ["robo", "ola"])
+
+    assert q == '"México"'          # sin paréntesis vacíos que la rompan
+
+
+def test_ningun_termino_de_gdelt_es_demasiado_corto():
+    """Guardia sobre la config real: añadir «robo» a keywords.yaml no debe
+    volver a tumbar GDELT sin que nadie lo vea."""
+    from atalaya.collect.apis import _GDELT_MIN_TERM
+    from atalaya.config import load_keywords
+
+    for lang in ("es", "pt"):
+        q = gdelt_query("X", load_keywords()["daily"][lang], lang)
+        for termino in q.split('"')[1::2]:
+            assert termino == "X" or len(termino) >= _GDELT_MIN_TERM, termino
