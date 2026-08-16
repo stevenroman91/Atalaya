@@ -246,6 +246,28 @@ def perimeter_anchor(text: str) -> str | None:
     return None
 
 
+def perimeter_country_in(text: str) -> str | None:
+    """Código del país vigilado nombrado en un texto, o None.
+
+    Para las fuentes regionales, que cubren todo el perímetro: su artículo
+    no viene de un flujo por país, así que el país hay que leerlo en el
+    propio texto. Sin ancla no se atribuye nada — atribuir «por defecto»
+    es exactamente cómo el terremoto colombiano acabó en el panel de Brasil.
+    """
+    if not text:
+        return None
+    from atalaya.config import load_countries
+
+    for code, c in load_countries().items():
+        if _needle_re(c.name).search(text):
+            return code
+        for zone in c.zones:
+            for term in zone.query_terms:
+                if len(term) > 3 and _needle_re(term).search(text):
+                    return code
+    return None
+
+
 def perimeter_country_for(place: str) -> str | None:
     """Código del país vigilado que corresponde a un lugar, o None.
 

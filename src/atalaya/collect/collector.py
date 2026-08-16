@@ -30,7 +30,8 @@ from atalaya.collect.extract import extract_article, text_from_feed_html, _parse
 from atalaya.collect.fetcher import PoliteFetcher
 from atalaya.collect.whitelist import (
     event_abroad, geo_filter_ok, looks_like_content_farm, match_source,
-    norm_domain, off_topic_section, perimeter_country_for, strip_site_suffix,
+    norm_domain, off_topic_section, perimeter_country_for, perimeter_country_in,
+    strip_site_suffix,
 )
 from atalaya.config import (
     Country, Zone, load_apis, load_countries, load_keywords, load_schedule, load_sources,
@@ -637,6 +638,51 @@ class Collector:
             else:
                 self.mark_source(source.domain, source.name, ok=True)
 
+    def _daily_regional(self, run: CollectRun, window: float) -> None:
+        """Las fuentes que cubren todo el perímetro, leídas una sola vez.
+
+        Nunca se consultaban: `_daily_rss` exige `source.origin == país`, y
+        el origen de BBC Mundo es GB, el de El País ES, el de Prensa Latina
+        CU. Cinco fuentes marcadas «nunca consultada» en los diez países del
+        panel — solo llegaban por Google News, si llegaban.
+
+        El país sale del texto, no del flujo: un artículo de la BBC no viene
+        etiquetado. Sin país del perímetro nombrado no se atribuye nada —
+        atribuir «por defecto» es exactamente cómo el terremoto colombiano
+        acabó en el panel de Brasil.
+        """
+        countries = load_countries()
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=window)
+        for source in load_sources():
+            if "*" not in source.covers:
+                continue
+            feed = self.discover_rss(source)
+            if not feed:
+                self.mark_source(source.domain, source.name, ok=False,
+                                 error="fuente regional sin flujo utilizable")
+                continue
+            resp = self.fetcher.get(feed)
+            if not resp:
+                self.mark_source(source.domain, source.name, ok=False,
+                                 error="el flujo no respondió")
+                continue
+            parsed = feedparser.parse(resp.content)
+            if not parsed.entries:
+                self.mark_source(source.domain, source.name, ok=False,
+                                 error="el flujo no devolvió entradas")
+                continue
+            self.mark_source(source.domain, source.name, ok=True)
+            self.stats["feeds"] += 1
+            for entry in parsed.entries[:60]:
+                titulo = (entry.get("title") or "")
+                code = perimeter_country_in(strip_site_suffix(titulo))
+                if code is None or code not in countries:
+                    self._reject("fuente regional sin país del perímetro en el titular")
+                    continue
+                self._ingest_entry(entry, run=run, country=countries[code],
+                                   zone=None, keyword=None, theme=None,
+                                   cutoff=cutoff, is_google_news=False)
+
     def _scrape_home(self, source, *, run: CollectRun, country: Country,
                      window: float) -> int:
         """Lee la portada de un medio sin flujo. Nº de artículos leídos."""
@@ -772,6 +818,8 @@ class Collector:
         # los boletines oficiales son globales: una sola lectura para todo
         # el perímetro, no una por país
         tasks.append(("official", todo[0] if todo else None, None))
+        # las regionales cubren el perímetro entero: una lectura, no diez
+        tasks.append(("regional", todo[0] if todo else None, None))
 
         def work(col: "Collector", wrun: CollectRun, task: tuple) -> None:
             kind, country, zone = task
@@ -781,6 +829,8 @@ class Collector:
                 col._daily_gdelt(wrun, country, window)
             elif kind == "official":
                 col._daily_official(wrun, window)
+            elif kind == "regional":
+                col._daily_regional(wrun, window)
             else:
                 col._daily_rss(wrun, country, window)
 

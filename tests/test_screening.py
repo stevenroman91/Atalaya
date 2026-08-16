@@ -475,7 +475,7 @@ def test_la_cobertura_marca_las_fuentes_a_revisar_a_mano(db):
     db.commit()
 
     client, cookie = _admin_client(db)
-    page = client.get("/admin/cobertura", cookies=cookie)
+    page = client.get("/cobertura", cookies=cookie)
 
     assert page.status_code == 200
     assert "Milenio" in page.text
@@ -489,6 +489,56 @@ def test_una_fuente_que_produjo_articulos_sale_como_produce(db):
     db.commit()
 
     client, cookie = _admin_client(db)
-    page = client.get("/admin/cobertura", cookies=cookie)
+    page = client.get("/cobertura", cookies=cookie)
 
     assert "cov-produce" in page.text
+
+
+def test_la_cobertura_es_para_el_analista_no_para_el_admin(db):
+    """Estaba bajo /admin, donde el analista no entra — y es él quien
+    necesita saber qué se ha consultado antes de fiarse de un panel vacío."""
+    import os
+
+    from fastapi.testclient import TestClient
+
+    from atalaya.db.models import User
+    from atalaya.web import auth
+    from atalaya.web.app import app
+
+    os.environ["ATALAYA_ADMIN_EMAIL"] = "admin@example.org"
+    os.environ["ATALAYA_ADMIN_PASSWORD"] = "admin-password-123"
+    auth.create_admin_from_env(db)
+    token = auth.create_invitation(db, email="analista@example.org",
+                                   role="analista", created_by=None)
+    db.commit()
+
+    auth.accept_invitation(db, token, "analista-password-1")
+    db.commit()
+
+    client = TestClient(app)
+    cookie = client.post("/auth/login",
+                         data={"email": "analista@example.org",
+                               "password": "analista-password-1"},
+                         follow_redirects=False).cookies
+
+    page = client.get("/cobertura", cookies=cookie)
+    assert page.status_code == 200
+    analista = db.scalar(select(User).where(User.email == "analista@example.org"))
+    assert analista.role == "analista"          # sin ser admin
+
+
+def test_el_resultado_de_probar_las_api_se_ve_en_la_cobertura(db):
+    """Sin bloque propio, el veredicto del botón no aparecía en ningún sitio:
+    las API no están en sources.yaml y no cubren un país."""
+    from atalaya.db.models import SourceRecord
+
+    db.add(SourceRecord(domain="earthquake.usgs.gov", name="USGS (sismos)",
+                        last_ok_at=datetime.now(timezone.utc),
+                        probe_note="3 elemento(s) pertinente(s). Ejemplo: «M 5.4»"))
+    db.commit()
+
+    client, cookie = _admin_client(db)
+    page = client.get("/cobertura", cookies=cookie)
+
+    assert "USGS" in page.text
+    assert "M 5.4" in page.text

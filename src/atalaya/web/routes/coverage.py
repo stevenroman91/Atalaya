@@ -16,11 +16,11 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from atalaya.config import load_countries, load_sources
+from atalaya.config import load_apis, load_countries, load_sources
 from atalaya.db.models import Article, ArticleStatus, Event, EventStatus, SourceRecord
-from atalaya.web.deps import get_db, render, require_admin
+from atalaya.web.deps import current_user, get_db, render
 
-router = APIRouter(prefix="/admin")
+router = APIRouter()
 
 WINDOW_HOURS = 24
 MAX_ARTICLES = 4000     # techo de seguridad de la consulta
@@ -52,8 +52,14 @@ ORDER = {"inalcanzable": 0, "sin_datos": 1, "sin_material": 2,
 
 
 @router.get("/cobertura")
-def coverage(request: Request, user_sess=Depends(require_admin),
+def coverage(request: Request, user_sess=Depends(current_user),
              db: Session = Depends(get_db)):
+    """Página de analista, no de administrador.
+
+    Estaba bajo /admin, donde el analista no entra — y es él quien necesita
+    saber qué se ha consultado antes de fiarse de un panel vacío. Saber que
+    Nicaragua tiene diez fuentes caídas cambia cómo se lee «0 eventos».
+    """
     user, sess = user_sess
     since = datetime.now(timezone.utc) - timedelta(hours=WINDOW_HOURS)
 
@@ -107,6 +113,7 @@ def coverage(request: Request, user_sess=Depends(require_admin),
                 "descartados": descartados[:PER_SOURCE],
                 "estado": estado, "detalle": detalle,
                 "probe_note": rec.probe_note if rec else None,
+                "probe_at": rec.probe_at if rec else None,
                 "last_ok": rec.last_ok_at if rec else None,
                 # a dónde ir a mirar a mano cuando la fuente no responde
                 "home": f"https://{src.domain}/",
@@ -124,5 +131,21 @@ def coverage(request: Request, user_sess=Depends(require_admin),
             "rejected": sum(r["rejected"] for r in filas),
         })
 
+    # Las API abiertas no están en sources.yaml y no cubren un país concreto:
+    # tienen su propio bloque. Sin él, el resultado del botón «Probar las
+    # API» no se veía en ninguna parte.
+    apis = []
+    for key, cfg in load_apis().items():
+        rec = records.get(cfg.get("domain") or "")
+        apis.append({
+            "key": key, "name": cfg.get("name", key),
+            "url": cfg.get("url"), "domain": cfg.get("domain"),
+            "enabled": bool(cfg.get("enabled")),
+            "verified": rec is not None and rec.last_ok_at is not None,
+            "note": rec.probe_note if rec else None,
+            "probe_at": rec.probe_at if rec else None,
+            "last_ok": rec.last_ok_at if rec else None,
+        })
+
     return render(request, "cobertura.html", user=user, csrf=sess.csrf_token,
-                  bloques=bloques, window_hours=WINDOW_HOURS)
+                  bloques=bloques, apis=apis, window_hours=WINDOW_HOURS)

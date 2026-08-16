@@ -155,5 +155,12 @@
   "cov_nothing": "nada na janela",
   "cov_kept_n": "artigos retidos",
   "cov_rejected_n": "descartados",
-  "admin_probe_apis": "Testar as API"
+  "admin_probe_apis": "Testar as API",
+  "cov_apis": "Fontes de dados abertas",
+  "cov_apis_hint": "Resultado do botão «Testar as API» do painel de administração. Enquanto uma API não for testada, a coleta ignora-a.",
+  "cov_probe_result": "Último teste",
+  "cov_api_ok": "testada e ativa",
+  "cov_api_untested": "não testada — sem uso",
+  "cov_api_off": "desativada na config",
+  "cov_api_never": "nunca testada"
 }

@@ -3,6 +3,35 @@
 <h2>{{ t('cov_title') }}</h2>
 <p class="section-hint">{{ t('cov_hint', hours=window_hours) }}</p>
 
+{% if apis %}
+<section class="panel">
+  <h3>{{ t('cov_apis') }}</h3>
+  <p class="section-hint">{{ t('cov_apis_hint') }}</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>API</th><th>{{ t('cov_state') }}</th><th>{{ t('cov_probe_result') }}</th></tr></thead>
+    <tbody>
+    {% for a in apis %}
+    <tr class="cov cov-{{ 'produce' if a.verified else 'sin_datos' }}">
+      <td><strong>{{ a.name }}</strong><br>
+        <a href="{{ a.url }}" class="mono" target="_blank" rel="noopener">{{ a.domain }}</a></td>
+      <td>
+        <span class="dot dot-{{ 'produce' if a.verified else 'sin_datos' }}" aria-hidden="true"></span>
+        {% if not a.enabled %}{{ t('cov_api_off') }}
+        {% elif a.verified %}{{ t('cov_api_ok') }}
+        {% else %}{{ t('cov_api_untested') }}{% endif %}
+      </td>
+      <td>
+        {% if a.note %}{{ a.note }}
+          {% if a.probe_at %}<br><span class="muted small">{{ a.probe_at.strftime('%Y-%m-%d %H:%M UTC') }}</span>{% endif %}
+        {% else %}<span class="muted small">{{ t('cov_api_never') }}</span>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</section>
+{% endif %}
+
 <nav class="tabs" aria-label="{{ t('country') }}">
   {% for b in bloques %}
   <a href="#pais-{{ b.code }}" class="tab">{{ b.name }}<span class="n">{{ b.revisar }}</span></a>
@@ -47,7 +76,7 @@
           <span class="dot dot-{{ r.estado }}" aria-hidden="true"></span>
           {{ t('cov_st_' + r.estado) }}
           <br><span class="muted small">{{ r.detalle }}</span>
-          {% if r.probe_note %}<br><span class="muted small">{{ r.probe_note }}</span>{% endif %}
+          {% if r.probe_note %}<br><span class="muted small">{{ r.probe_note }}{% if r.probe_at %} ({{ r.probe_at.strftime('%m-%d %H:%M') }}){% endif %}</span>{% endif %}
         </td>
         <td class="links">
           {# Desplegables: el recuento se lee de un vistazo, las URL se abren

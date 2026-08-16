@@ -155,5 +155,12 @@
   "cov_nothing": "nothing in the window",
   "cov_kept_n": "articles kept",
   "cov_rejected_n": "dropped",
-  "admin_probe_apis": "Test the APIs"
+  "admin_probe_apis": "Test the APIs",
+  "cov_apis": "Open data sources",
+  "cov_apis_hint": "Result of the admin panel's «Test the APIs» button. Until an API is tested, collection ignores it.",
+  "cov_probe_result": "Last test",
+  "cov_api_ok": "tested and active",
+  "cov_api_untested": "untested — unused",
+  "cov_api_off": "disabled in config",
+  "cov_api_never": "never tested"
 }

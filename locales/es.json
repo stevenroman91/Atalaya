@@ -155,5 +155,12 @@
   "cov_nothing": "nada en la ventana",
   "cov_kept_n": "artículos retenidos",
   "cov_rejected_n": "descartados",
-  "admin_probe_apis": "Probar las API"
+  "admin_probe_apis": "Probar las API",
+  "cov_apis": "Fuentes de datos abiertas",
+  "cov_apis_hint": "Resultado del botón «Probar las API» del panel de administración. Mientras una API no esté probada, la colecta la ignora.",
+  "cov_probe_result": "Última prueba",
+  "cov_api_ok": "probada y activa",
+  "cov_api_untested": "sin probar — no se usa",
+  "cov_api_off": "desactivada en config",
+  "cov_api_never": "nunca probada"
 }
