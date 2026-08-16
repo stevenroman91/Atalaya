@@ -244,7 +244,13 @@ def process_daily(db: Session, run: CollectRun, countries_filter: list[str] | No
             # {lugar} de las recomendaciones: sintagma completo. Sin zona
             # conocida, genérico — nunca «la zona de México» (país entero).
             place = f"la zona de {zone.name}" if zone else "la zona afectada"
-            geo = zone.geo if zone and zone.geo else None
+            # Prioridad a las coordenadas que trae la fuente: USGS y GDACS
+            # dan el punto real del hecho. La zona es un centroide y el país
+            # es su capital — un sismo a 300 km salía en la capital.
+            geo = next(((a.lat, a.lon) for a in cluster.articles
+                        if a.lat is not None and a.lon is not None), None)
+            if geo is None and zone and zone.geo:
+                geo = zone.geo
             if geo is None:
                 # sin zona precisa: marcador a nivel país (primera zona con
                 # geo — p. ej. mx-nacional / la capital) para que el evento

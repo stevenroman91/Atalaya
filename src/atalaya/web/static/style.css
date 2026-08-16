@@ -483,3 +483,19 @@ tr.cov-sin_datos td:first-child { box-shadow: inset 3px 0 0 var(--muted); }
   line-height: 1.35;
 }
 button.small { padding: .2rem .5rem; font-size: .75rem; }
+
+/* ---------- listas de enlaces desplegables (cobertura) ---------- */
+td.links { min-width: 220px; }
+td.links details { margin-bottom: .3rem; }
+td.links summary {
+  cursor: pointer; font-size: .8rem; color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+td.links summary:hover { color: var(--accent); }
+td.links summary.warn-sum { color: var(--warn-text); }
+.urllist {
+  margin: .4rem 0 .2rem; padding-left: 1rem; max-height: 18rem;
+  overflow-y: auto; font-size: .78rem;
+}
+.urllist li { margin-bottom: .35rem; }
+.urllist a { word-break: break-word; }

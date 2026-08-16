@@ -142,6 +142,15 @@ def load_schedule() -> dict:
     return _load_yaml("schedule.yaml")
 
 
+@lru_cache(maxsize=1)
+def load_apis() -> dict:
+    """Fuentes de datos abiertas. Fichero opcional: sin él, no hay API."""
+    try:
+        return _load_yaml("apis.yaml").get("apis", {})
+    except FileNotFoundError:
+        return {}
+
+
 def source_by_domain() -> dict[str, Source]:
     return {s.domain: s for s in load_sources()}
 

@@ -93,6 +93,11 @@ class Article(Base):
     theme: Mapped[str | None] = mapped_column(String(32))     # tema semanal, si aplica
     status: Mapped[str] = mapped_column(String(16), default=ArticleStatus.extracted.value)
     reject_reason: Mapped[str | None] = mapped_column(String(255))
+    # Coordenadas exactas cuando la fuente las da (USGS, GDACS). La prensa
+    # no las da nunca, así que hasta ahora el mapa ponía el marcador en la
+    # capital del país: un sismo a 300 km salía en la capital.
+    lat: Mapped[float | None] = mapped_column(Float)
+    lon: Mapped[float | None] = mapped_column(Float)
 
     events: Mapped[list["EventArticle"]] = relationship(back_populates="article")
 

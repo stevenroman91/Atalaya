@@ -130,6 +130,97 @@ def probe_domain(domain: str, fetcher=None) -> str:
             f"{len(useful)} pertinentes. Ejemplo: «{useful[0][1][:70]}»")
 
 
+def probe_api(key: str, cfg: dict, fetcher=None) -> tuple[bool, str]:
+    """(¿utilizable?, veredicto legible) para un punto de entrada de API.
+
+    Es el equivalente de `probe_domain` para las API abiertas, y existe por
+    la misma razón: el entorno de desarrollo no tiene salida a internet, así
+    que la única prueba real posible ocurre desde producción. Mientras esta
+    prueba no pase, el colector ignora la API — nada entra en base porque la
+    URL «parecía correcta».
+    """
+    from atalaya.collect.apis import parse_gdacs, parse_gdelt, parse_usgs
+    from atalaya.collect.fetcher import PoliteFetcher
+
+    url = cfg.get("url") or ""
+    if not url:
+        return False, "sin URL configurada"
+    kind = cfg.get("kind")
+    if kind == "gdelt_doc":
+        url = (f"{url}?query=%22M%C3%A9xico%22&mode=artlist&format=json"
+               f"&maxrecords=5&timespan=1d")
+    resp = (fetcher or PoliteFetcher()).get(url)
+    if not resp:
+        return False, "sin respuesta (bloqueada, caída o robots.txt lo impide)"
+    try:
+        if kind == "gdelt_doc":
+            items = parse_gdelt(resp.json())
+            muestra = items[0]["title"] if items else ""
+        elif kind == "usgs_geojson":
+            items = parse_usgs(resp.json(), float(cfg.get("min_magnitude", 4.0)))
+            muestra = items[0].title if items else ""
+        elif kind == "gdacs_rss":
+            items = parse_gdacs(resp.text, str(cfg.get("min_level", "orange")))
+            muestra = items[0].title if items else ""
+        else:
+            return False, f"tipo desconocido: {kind}"
+    except Exception as exc:
+        return False, f"respuesta no parseable: {type(exc).__name__}"
+
+    # Cero elementos NO es un fallo: significa que hoy no hay nada por encima
+    # del umbral. Lo que se prueba es que la respuesta se parsea.
+    detalle = f"{len(items)} elemento(s) pertinente(s)"
+    if muestra:
+        detalle += f". Ejemplo: «{muestra[:70]}»"
+    return True, detalle
+
+
+def _probe_apis_in_background() -> None:
+    """Prueba las API una tras otra y guarda el veredicto."""
+    from atalaya.collect.fetcher import PoliteFetcher
+    from atalaya.config import load_apis
+    from atalaya.db import SessionLocal
+
+    def worker():
+        fetcher = PoliteFetcher()
+        with SessionLocal() as job_db:
+            for key, cfg in load_apis().items():
+                domain = cfg.get("domain")
+                if not domain:
+                    continue
+                try:
+                    ok, note = probe_api(key, cfg, fetcher)
+                except Exception as exc:
+                    log.exception("prueba de la API %s falló", key)
+                    ok, note = False, f"la prueba falló: {type(exc).__name__}"
+                rec = job_db.scalar(select(SourceRecord)
+                                    .where(SourceRecord.domain == domain))
+                if rec is None:
+                    rec = SourceRecord(domain=domain, name=cfg.get("name", key))
+                    job_db.add(rec)
+                rec.probe_note = note
+                rec.probe_at = datetime.now(timezone.utc)
+                if ok:
+                    # last_ok_at es la llave: el colector no toca una API sin él
+                    rec.last_ok_at = datetime.now(timezone.utc)
+                    rec.consecutive_failures = 0
+                    rec.last_error = None
+                else:
+                    rec.consecutive_failures += 1
+                    rec.last_error = note[:500]
+                job_db.commit()
+
+    threading.Thread(target=worker, daemon=True, name="probe-apis").start()
+
+
+@router.post("/probe-apis")
+async def probe_apis(request: Request, user_sess=Depends(require_admin),
+                     db: Session = Depends(get_db)):
+    await check_csrf(request, user_sess)
+    _probe_apis_in_background()
+    return RedirectResponse("/admin?notice=probing", status_code=303)
+
+
 def _probe_all_in_background() -> None:
     """Diagnostica en un hilo todas las fuentes en fallo, una tras otra.
 

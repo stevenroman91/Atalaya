@@ -25,13 +25,16 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from atalaya.collect.apis import gdelt_query, parse_gdacs, parse_gdelt, parse_usgs
 from atalaya.collect.extract import extract_article, text_from_feed_html, _parse_dt
 from atalaya.collect.fetcher import PoliteFetcher
 from atalaya.collect.whitelist import (
     event_abroad, geo_filter_ok, looks_like_content_farm, match_source,
     norm_domain, off_topic_section, perimeter_country_for, strip_site_suffix,
 )
-from atalaya.config import Country, Zone, load_countries, load_keywords, load_schedule, load_sources
+from atalaya.config import (
+    Country, Zone, load_apis, load_countries, load_keywords, load_schedule, load_sources,
+)
 from atalaya.db.models import Article, ArticleStatus, CollectRun, SourceRecord, utcnow
 
 log = logging.getLogger(__name__)
@@ -648,6 +651,110 @@ class Collector:
             base, resp.text, run=run, country=country, zone=None,
             keyword=None, theme=None, window_hours=window, max_entries=None)
 
+    # ── API abiertas (§5.2 bis) ──────────────────────────────────────────
+    def _api_ready(self, cfg: dict) -> bool:
+        """Una API solo se usa si una prueba real desde producción devolvió
+        algo parseable. Misma regla que los flujos RSS: nada entra en base
+        por parecerse a una URL correcta."""
+        if not cfg.get("enabled") or not cfg.get("url") or not cfg.get("domain"):
+            return False
+        rec = self.db.scalar(select(SourceRecord)
+                             .where(SourceRecord.domain == cfg["domain"]))
+        return rec is not None and rec.last_ok_at is not None
+
+    def _daily_gdelt(self, run: CollectRun, country: Country, window: float) -> None:
+        """GDELT devuelve URLs de medios que no están en la lista blanca.
+
+        Se inyectan como entradas de flujo: pasan por el mismo camino que
+        Google News —sección, perímetro, ventana, extracción, granja de
+        contenido— sin ninguna excepción escrita para ellas.
+        """
+        cfg = load_apis().get("gdelt") or {}
+        if not self._api_ready(cfg):
+            return
+        kws = load_keywords()["daily"]
+        words = kws.get(country.lang, kws["es"])
+        url = (f"{cfg['url']}?query={quote_plus(gdelt_query(country.name, words))}"
+               f"&mode=artlist&format=json&sort=datedesc"
+               f"&maxrecords={int(cfg.get('max_records', 60))}"
+               f"&timespan={cfg.get('timespan', '1d')}")
+        resp = self.fetcher.get(url)
+        if not resp:
+            self.mark_source(cfg["domain"], cfg.get("name", "GDELT"), ok=False,
+                             error="sin respuesta")
+            return
+        try:
+            entries = parse_gdelt(resp.json())
+        except Exception as exc:                       # payload inesperado
+            self.mark_source(cfg["domain"], cfg.get("name", "GDELT"), ok=False,
+                             error=f"respuesta no parseable: {type(exc).__name__}")
+            return
+        self.mark_source(cfg["domain"], cfg.get("name", "GDELT"), ok=True)
+        self.stats["gdelt_entries"] = self.stats.get("gdelt_entries", 0) + len(entries)
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=window)
+        for entry in entries:
+            self._ingest_entry(entry, run=run, country=country, zone=None,
+                               keyword=None, theme=None, cutoff=cutoff,
+                               is_google_news=False)
+
+    def _daily_official(self, run: CollectRun, window: float) -> None:
+        """USGS y GDACS: datos oficiales geolocalizados, no páginas de prensa.
+
+        No se «extrae» nada de ellos —no hay artículo que raspar—: el texto
+        se compone con sus propios campos, que es la misma disciplina
+        extractiva aplicada a un dato estructurado. Aportan lo que la prensa
+        nunca da: coordenadas exactas.
+        """
+        apis = load_apis()
+        for key, parse in (("usgs", "usgs"), ("gdacs", "gdacs")):
+            cfg = apis.get(key) or {}
+            if not self._api_ready(cfg):
+                continue
+            resp = self.fetcher.get(cfg["url"])
+            if not resp:
+                self.mark_source(cfg["domain"], cfg.get("name", key), ok=False,
+                                 error="sin respuesta")
+                continue
+            try:
+                if parse == "usgs":
+                    items = parse_usgs(resp.json(),
+                                       float(cfg.get("min_magnitude", 4.0)))
+                else:
+                    items = parse_gdacs(resp.text,
+                                        str(cfg.get("min_level", "orange")))
+            except Exception as exc:
+                self.mark_source(cfg["domain"], cfg.get("name", key), ok=False,
+                                 error=f"respuesta no parseable: {type(exc).__name__}")
+                continue
+            self.mark_source(cfg["domain"], cfg.get("name", key), ok=True)
+            cutoff = datetime.now(timezone.utc) - timedelta(hours=window)
+            for item in items:
+                if item.published_at < cutoff:
+                    continue
+                self._ingest_official(item, run=run)
+
+    def _ingest_official(self, item, *, run: CollectRun) -> bool:
+        if self.db.scalar(select(Article).where(Article.url == item.url)):
+            self.stats["duplicate_url"] += 1
+            return False
+        art = Article(
+            run_id=run.id, url=item.url, domain=item.domain,
+            source_name=item.source_name, source_type="oficial",
+            title=item.title, text=item.text, lang="es",
+            published_at=item.published_at, country=item.country,
+            lat=item.lat, lon=item.lon,
+            status=ArticleStatus.extracted.value)
+        try:
+            with self.db.begin_nested():
+                self.db.add(art)
+                self.db.flush()
+        except IntegrityError:
+            self.stats["duplicate_url"] += 1
+            return False
+        self.stats["stored"] += 1
+        self.stats["official"] = self.stats.get("official", 0) + 1
+        return True
+
     def collect_daily(self, run: CollectRun, countries: list[str] | None = None) -> dict:
         sched = load_schedule()["daily"]
         window = float(sched.get("window_hours", 24)) + float(sched.get("overlap_hours", 2))
@@ -661,11 +768,19 @@ class Collector:
             for zone in country.zones:
                 tasks.append(("zone", country, zone))
             tasks.append(("rss", country, None))
+            tasks.append(("gdelt", country, None))
+        # los boletines oficiales son globales: una sola lectura para todo
+        # el perímetro, no una por país
+        tasks.append(("official", todo[0] if todo else None, None))
 
         def work(col: "Collector", wrun: CollectRun, task: tuple) -> None:
             kind, country, zone = task
             if kind == "zone":
                 col._daily_zone(wrun, country, zone, window, kws)
+            elif kind == "gdelt":
+                col._daily_gdelt(wrun, country, window)
+            elif kind == "official":
+                col._daily_official(wrun, window)
             else:
                 col._daily_rss(wrun, country, window)
 

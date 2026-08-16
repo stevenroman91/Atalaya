@@ -23,6 +23,8 @@ from atalaya.web.deps import get_db, render, require_admin
 router = APIRouter(prefix="/admin")
 
 WINDOW_HOURS = 24
+MAX_ARTICLES = 4000     # techo de seguridad de la consulta
+PER_SOURCE = 40         # enlaces desplegados por fuente y país
 
 
 def _verdict(rec: SourceRecord | None, kept: int, rejected: int) -> tuple[str, str]:
@@ -55,14 +57,22 @@ def coverage(request: Request, user_sess=Depends(require_admin),
     user, sess = user_sess
     since = datetime.now(timezone.utc) - timedelta(hours=WINDOW_HOURS)
 
-    # (dominio, país, estado) → nº de artículos, en una sola consulta
-    counts: dict[tuple[str, str], dict[str, int]] = {}
-    for domain, code, status, n in db.execute(
-            select(Article.domain, Article.country, Article.status,
-                   func.count(Article.id))
-            .where(Article.fetched_at >= since)
-            .group_by(Article.domain, Article.country, Article.status)):
-        counts.setdefault((domain, code), {})[status] = n
+    # Los artículos mismos, no solo su recuento: el analista quiere abrir la
+    # lista y pinchar la URL para juzgar por sí mismo lo que se ha leído —y
+    # sobre todo lo que se ha descartado, que es donde se esconden nuestros
+    # errores de filtro. Un número solo no se puede contradecir.
+    listas: dict[tuple[str, str], dict[str, list]] = {}
+    for art in db.scalars(
+            select(Article).where(Article.fetched_at >= since)
+            .order_by(Article.fetched_at.desc()).limit(MAX_ARTICLES)):
+        cubo = listas.setdefault((art.domain, art.country or ""), {})
+        clave = ("rejected" if art.status == ArticleStatus.rejected.value
+                 else "kept")
+        cubo.setdefault(clave, []).append({
+            "url": art.url, "title": art.title,
+            "reason": art.reject_reason,
+            "at": art.fetched_at,
+        })
 
     records = {r.domain: r for r in db.scalars(select(SourceRecord))}
     events = dict(db.execute(
@@ -82,21 +92,24 @@ def coverage(request: Request, user_sess=Depends(require_admin),
             if not src.covers_country(code):
                 continue
             rec = records.get(src.domain)
-            c = counts.get((src.domain, code), {})
-            kept = (c.get(ArticleStatus.extracted.value, 0)
-                    + c.get(ArticleStatus.title_only.value, 0))
-            rejected = c.get(ArticleStatus.rejected.value, 0)
-            estado, detalle = _verdict(rec, kept, rejected)
+            cubo = listas.get((src.domain, code), {})
+            retenidos = cubo.get("kept", [])
+            descartados = cubo.get("rejected", [])
+            estado, detalle = _verdict(rec, len(retenidos), len(descartados))
             filas.append({
                 "name": src.name, "domain": src.domain, "type": src.type,
                 "alcance": "regional" if "*" in src.covers else "nacional",
                 "rss": src.rss or (rec.discovered_rss if rec else None),
                 "rss_origen": "configurado" if src.rss else (
                     "autodescubierto" if rec and rec.discovered_rss else None),
-                "kept": kept, "rejected": rejected,
+                "kept": len(retenidos), "rejected": len(descartados),
+                "articulos": retenidos[:PER_SOURCE],
+                "descartados": descartados[:PER_SOURCE],
                 "estado": estado, "detalle": detalle,
                 "probe_note": rec.probe_note if rec else None,
                 "last_ok": rec.last_ok_at if rec else None,
+                # a dónde ir a mirar a mano cuando la fuente no responde
+                "home": f"https://{src.domain}/",
             })
         filas.sort(key=lambda r: (ORDER[r["estado"]], -r["kept"], r["name"]))
         bloques.append({
@@ -107,6 +120,8 @@ def coverage(request: Request, user_sess=Depends(require_admin),
             "revisar": sum(1 for r in filas
                            if r["estado"] in ("inalcanzable", "sin_datos")),
             "total": len(filas),
+            "kept": sum(r["kept"] for r in filas),
+            "rejected": sum(r["rejected"] for r in filas),
         })
 
     return render(request, "cobertura.html", user=user, csrf=sess.csrf_token,

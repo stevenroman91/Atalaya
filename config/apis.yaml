@@ -1,0 +1,41 @@
+# Fuentes de datos abiertas. Amplían la lista blanca sin sustituirla.
+#
+# REGLA (§4, idéntica a la de los flujos RSS): ninguna de estas URL se usa
+# mientras no haya devuelto una respuesta parseable en una prueba real. El
+# botón «Probar las API» del panel de administración lo comprueba desde
+# producción y guarda el resultado; el colector ignora toda API sin prueba
+# superada. El entorno de desarrollo no tiene salida a internet, así que no
+# hay forma de que una URL entre aquí «porque parecía correcta».
+#
+#   enabled    ponerlo a false desactiva la API aunque esté probada
+#   min_*      umbrales de pertinencia (por debajo es ruido operacional)
+
+apis:
+  gdelt:
+    enabled: true
+    kind: gdelt_doc
+    name: "GDELT 2.0"
+    url: "https://api.gdeltproject.org/api/v2/doc/doc"
+    domain: "api.gdeltproject.org"
+    max_records: 60
+    timespan: "1d"
+    # Solo aporta URLs: el texto lo extrae nuestro robot de la página real.
+
+  usgs:
+    enabled: true
+    kind: usgs_geojson
+    name: "USGS (sismos)"
+    url: "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson"
+    domain: "earthquake.usgs.gov"
+    # Por debajo de 4.0 un sismo no cambia la conducta de nadie sobre el
+    # terreno; el boletín seguiría llenando el panel todos los días.
+    min_magnitude: 4.0
+
+  gdacs:
+    enabled: true
+    kind: gdacs_rss
+    name: "GDACS"
+    url: "https://www.gdacs.org/xml/rss.xml"
+    domain: "gdacs.org"
+    # GDACS publica también el nivel verde: sin impacto, sin decisión.
+    min_level: orange
