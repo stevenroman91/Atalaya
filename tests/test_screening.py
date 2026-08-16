@@ -134,3 +134,81 @@ def test_un_evento_legitimo_sobrevive_al_barrido(db):
     events = list(db.scalars(select(Event)))
     assert len(events) == 1
     assert events[0].status != EventStatus.discarded.value
+
+
+# ── el barrido debe alcanzar los eventos fuera de la ventana ─────────────
+# Fallo real en producción: los eventos del 14/08 seguían en el panel el
+# 16/08. Sus artículos habían salido de la ventana de frescura, así que no
+# se re-examinaban, así que nunca quedaban marcados como rechazados — y un
+# barrido que buscaba «eventos con todos los artículos rechazados» no veía
+# ninguno. El juicio debe recaer sobre el evento, no sobre sus artículos.
+
+def _viejo(db, run, title, country="MX", urls=("https://x.com/nota/algo",),
+           status=EventStatus.published.value) -> Event:
+    ev = Event(run_id=run.id, dedup_key=f"k-{title[:20]}", country=country,
+               title_es=title, summary_version="v", event_type="ALERTA",
+               category="crimen_alto_impacto", level="advertencia", status=status,
+               occurred_at=datetime.now(timezone.utc) - timedelta(days=2),
+               recurrence=len(urls), independent_sources=1, has_state_media=False)
+    db.add(ev)
+    db.flush()
+    for i, u in enumerate(urls):
+        a = _article(db, run, url=u, title=title, country=country,
+                     published_at=datetime.now(timezone.utc) - timedelta(days=2))
+        db.add(EventArticle(event_id=ev.id, article_id=a.id))
+    db.flush()
+    return ev
+
+
+def test_evento_viejo_fuera_del_perimetro_se_retira(db):
+    run = _run(db)
+    ev = _viejo(db, run,
+                "Terremoto frente a la costa de Indonesia deja al menos 47 muertos")
+
+    stats = process_daily(db, run, countries_filter=["MX"])
+
+    assert stats["retired"] == 1
+    db.refresh(ev)
+    assert ev.status == EventStatus.discarded.value
+    assert "Indonesia" in ev.score_detail["retirado"]
+
+
+def test_evento_viejo_de_opinion_se_retira_por_mayoria(db):
+    run = _run(db)
+    ev = _viejo(db, run, "¡Ay Andy!", urls=(
+        "https://www.elimparcial.com/columnas/2026/08/15/ay-andy/",
+        "https://www.elimparcial.com/columnas/2026/08/15/la-visa-de-andy/",
+        "https://www.eluniversal.com.mx/video/podcast/andy-lopez-beltran/",
+        "https://www.reforma.com/defiende-csp-a-andy/ar3258342",
+    ))
+
+    stats = process_daily(db, run, countries_filter=["MX"])
+
+    assert stats["retired"] == 1
+    db.refresh(ev)
+    assert ev.status == EventStatus.discarded.value
+
+
+def test_evento_viejo_del_perimetro_se_reatribuye_no_se_retira(db):
+    run = _run(db)
+    ev = _viejo(db, run, "Balacera deja tres muertos en Caracas, Venezuela",
+                country="NI")
+
+    stats = process_daily(db, run, countries_filter=["NI"])
+
+    assert stats["retired"] == 0
+    db.refresh(ev)
+    assert ev.country == "VE"
+    assert ev.status == EventStatus.published.value
+
+
+def test_un_evento_local_viejo_sigue_en_el_panel(db):
+    run = _run(db)
+    ev = _viejo(db, run, "Balacera deja dos heridos en el centro de Culiacán",
+                urls=("https://www.eluniversal.com.mx/estados/balacera-culiacan/",))
+
+    stats = process_daily(db, run, countries_filter=["MX"])
+
+    assert stats["retired"] == 0
+    db.refresh(ev)
+    assert ev.status == EventStatus.published.value

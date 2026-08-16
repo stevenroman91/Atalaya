@@ -80,25 +80,55 @@ def _screen_stored(db: Session, code: str, articles: list[Article], stats: dict)
     return kept
 
 
-def _retire_screened_events(db: Session, stats: dict) -> None:
-    """Retira del panel los eventos cuyos artículos han sido todos rechazados.
+def screen_event(ev: Event) -> tuple[str | None, str | None]:
+    """Juzga un evento ya creado: (país al que reatribuir, motivo de retirada).
 
-    El filtro de ingesta impide que entren hechos nuevos irrelevantes, pero
-    no toca los eventos ya creados: seguirían mostrándose hasta envejecer.
-    Se pasan a «descartado» —no se borran— para que el analista pueda
-    revisarlos y contradecir el juicio del filtro.
+    Aplica las reglas al EVENTO, no a sus artículos. Es la diferencia que
+    hacía inútil la primera versión de este barrido: solo miraba artículos
+    marcados como rechazados, y un artículo únicamente se re-examina si
+    sigue dentro de la ventana de frescura. Los eventos del día anterior
+    quedaban congelados — demasiado viejos para volver a tratarse, pero
+    aún visibles en el panel.
+    """
+    abroad = event_abroad(ev.country, ev.title_es or "")
+    if abroad:
+        other = perimeter_country_for(abroad)
+        if other and other != ev.country:
+            return other, None
+        return None, f"hecho localizado fuera del perímetro: {abroad}"
+
+    # La sección se lee en las URL de respaldo. Basta con que la mayoría sean
+    # ajenas: el titular del evento sale del artículo más completo, y un
+    # cluster mayoritariamente de opinión es una columna, no un suceso.
+    urls = [ea.article.url or "" for ea in ev.articles if ea.article]
+    off = [off_topic_section(u) for u in urls]
+    ajenos = [s for s in off if s]
+    if urls and len(ajenos) * 2 > len(urls):
+        return None, f"sección ajena a la vigilancia: {ajenos[0]}"
+    return None, None
+
+
+def _retire_screened_events(db: Session, stats: dict) -> None:
+    """Pasa por el filtro los eventos ya publicados, sin límite de antigüedad.
+
+    Se retiran del panel —estado «descartado», nunca borrados— o se
+    reatribuyen al país donde ocurre el hecho. El analista conserva la
+    posibilidad de contradecir el juicio.
     """
     live = (EventStatus.published.value, EventStatus.pending_confirm.value)
-    events = list(db.scalars(select(Event).where(Event.status.in_(live))))
-    for ev in events:
-        articles = [ea.article for ea in ev.articles]
-        if not articles:
-            continue
-        if all(a.status == ArticleStatus.rejected.value for a in articles):
+    for ev in db.scalars(select(Event).where(Event.status.in_(live))):
+        other, reason = screen_event(ev)
+        if other:
+            ev.country = other
+            ev.zone_id = None
+            ev.lat = ev.lon = None      # la geo de la zona anterior ya no aplica
+            stats["reattributed"] += 1
+            log.info("evento reatribuido a %s: %s", other, (ev.title_es or "")[:100])
+        elif reason:
             ev.status = EventStatus.discarded.value
+            ev.score_detail = {**(ev.score_detail or {}), "retirado": reason}
             stats["retired"] += 1
-            log.info("evento retirado del panel: %s — %s", ev.title_es[:100],
-                     articles[0].reject_reason or "artículos rechazados")
+            log.info("evento retirado del panel [%s] %s", reason, (ev.title_es or "")[:100])
 
 
 def process_daily(db: Session, run: CollectRun, countries_filter: list[str] | None = None) -> dict:

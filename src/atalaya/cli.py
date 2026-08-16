@@ -67,6 +67,47 @@ def _invite(email: str, role: str) -> None:
         print(f"Invitación para {email} (rol {role}):\n{base}/auth/invite/{token}")
 
 
+def _probe_home(domains: list[str]) -> None:
+    """Mide qué daría leer la portada de un medio, SIN escribir en base.
+
+    Existe porque la lectura de portada se programó a ciegas: el sandbox de
+    desarrollo no tiene salida a internet, así que nadie había visto una
+    sola de esas páginas. Esto las mira de verdad y da los números —
+    cuántos enlaces hay, cuántos parecen artículos, cuántos sobreviven al
+    filtro de sección — antes de encender nada en producción.
+    """
+    from atalaya.collect.collector import Collector
+    from atalaya.collect.fetcher import PoliteFetcher
+    from atalaya.collect.whitelist import norm_domain, off_topic_section
+
+    fetcher = PoliteFetcher()
+    for domain in domains:
+        d = norm_domain(domain)
+        home = f"https://{d}/"
+        resp = fetcher.get(home)
+        if not resp:
+            print(f"{d}: portada inalcanzable (robots.txt o error HTTP) — "
+                  f"no se insiste")
+            continue
+        base = str(getattr(resp, "url", "") or home)
+        html = resp.text
+        anchors = len(Collector._LINK_RE.findall(html))
+        links = Collector._article_links_from_html(base, html, norm_domain(base))
+        useful = [(u, t) for u, t in links if not off_topic_section(u)]
+        print(f"\n{d} → {base}  ({len(html)//1024} kB)")
+        print(f"  enlaces en la página : {anchors}")
+        print(f"  con pinta de artículo: {len(links)}")
+        print(f"  fuera de secciones ajenas: {len(useful)}")
+        for u, t in useful[:5]:
+            print(f"    · {t[:80]}\n      {u}")
+        if not links and anchors > 50:
+            print("  → la página tiene enlaces pero ninguno pasa el filtro: "
+                  "revisar la forma de sus URL antes de encender home_scrape")
+        elif anchors < 10:
+            print("  → casi sin enlaces en el HTML: portada renderizada por "
+                  "JavaScript; leerla no aportaría nada")
+
+
 def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=os.environ.get("ATALAYA_LOG_LEVEL", "INFO"),
                         format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -85,6 +126,9 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("monthly")
     p.add_argument("--month", help="YYYY-MM (por defecto, el mes anterior)")
     sub.add_parser("translate")
+    p = sub.add_parser("probe-home",
+                       help="¿La portada de un medio sin flujo trae artículos?")
+    p.add_argument("domain", nargs="+")
     p = sub.add_parser("serve")
     p.add_argument("--host", default="0.0.0.0")
     p.add_argument("--port", type=int, default=int(os.environ.get("PORT", 8000)))
@@ -117,6 +161,8 @@ def main(argv: list[str] | None = None) -> int:
         from atalaya.process.translate import translate_pending
         with SessionLocal() as db:
             print(json.dumps(translate_pending(db), indent=2))
+    elif args.cmd == "probe-home":
+        _probe_home(args.domain)
     elif args.cmd == "serve":
         import uvicorn
         uvicorn.run("atalaya.web.app:app", host=args.host, port=args.port)

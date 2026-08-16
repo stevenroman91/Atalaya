@@ -541,11 +541,14 @@ class Collector:
             # se movió, el medio no publica flujo utilizable. Antes se daba
             # la fuente por perdida; ahora se lee su portada.
             if self.stats["feeds"] == before:
-                if self._scrape_home(source, run=run, country=country, window=window):
-                    self.mark_source(source.domain, source.name, ok=True)
-                else:
-                    self.mark_source(source.domain, source.name, ok=False,
-                                     error="sin flujo y portada sin artículos utilizables")
+                # La lectura de portada está APAGADA por defecto: sin verificar
+                # sobre las páginas reales no sabemos si aporta algo, y cuesta
+                # hasta 25 descargas por fuente. `atalaya probe-home` mide eso
+                # sin escribir nada; se enciende cuando los números lo avalen.
+                if load_schedule().get("collector", {}).get("home_scrape"):
+                    self._scrape_home(source, run=run, country=country, window=window)
+                self.mark_source(source.domain, source.name, ok=False,
+                                 error="el flujo no devolvió entradas")
             else:
                 self.mark_source(source.domain, source.name, ok=True)
 

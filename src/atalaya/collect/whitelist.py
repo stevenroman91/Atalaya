@@ -160,6 +160,10 @@ def perimeter_country_for(place: str) -> str | None:
 _OFF_TOPIC_SECTIONS = (
     "opinion", "opinión", "editorial", "columna", "columnas", "columnistas",
     "blog", "blogs", "analisis", "análisis", "cartas",
+    # rúbricas de formato: un podcast o una galería comentan la actualidad,
+    # no describen un hecho — y no son resumibles de forma extractiva
+    "video", "videos", "podcast", "podcasts", "galeria", "galería",
+    "fotogaleria", "fotogalería", "multimedia", "infografia", "infografía",
     "deportes", "deporte", "futbol", "fútbol", "beisbol", "béisbol", "nba",
     "espectaculos", "espectáculos", "farandula", "farándula", "gente",
     "vida", "estilo", "moda", "gastronomia", "gastronomía", "viajes",
