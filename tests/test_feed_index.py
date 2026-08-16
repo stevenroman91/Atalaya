@@ -232,3 +232,22 @@ def test_el_texto_del_enlace_sigue_teniendo_prioridad():
 
 def test_un_enlace_de_menu_sigue_descartado_aunque_tenga_title():
     assert _uno('<a href="/deportes" title="Deportes">Deportes</a>') == []
+
+
+# ── etiquetas de accesibilidad que anteponen su función ─────────────────
+# ABC Color etiqueta sus enlaces de comentarios «Enlace a comentarios para
+# el artículo X». Sin recortar ese prefijo, el evento aparecía en el panel
+# titulado así — ilegible para el analista.
+
+def test_el_prefijo_de_la_etiqueta_se_recorta():
+    r = _uno(f'<a href="{NOTA}" aria-label="Enlace a comentarios para el '
+             f'artículo Llamativa megainversión de una firma paraguaya">'
+             f'<span></span></a>')
+    assert r and r[0][1] == "Llamativa megainversión de una firma paraguaya"
+
+
+def test_un_titular_que_empieza_por_ver_no_se_mutila():
+    """El recorte exige la palabra «artículo»: un titular normal no la trae."""
+    r = _uno(f'<a href="{NOTA}">Ver crecer la violencia en Asunción preocupa '
+             f'a los comerciantes</a>')
+    assert r and r[0][1].startswith("Ver crecer la violencia")

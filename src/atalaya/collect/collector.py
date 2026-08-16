@@ -185,6 +185,13 @@ class Collector:
 
     _MIN_TITLE = 25          # por debajo: menús, «Leer más», iconos
 
+    # Etiquetas de accesibilidad que anteponen su función al titular real:
+    # «Enlace a comentarios para el artículo X». Sin recortarlas, el evento
+    # acabaría titulado así en el panel del analista.
+    _LABEL_PREFIX = re.compile(
+        r"^(?:enlace|link|ir|acceder|ver|leer)\b[^:]{0,40}?"
+        r"(?:art[ií]culo|nota|noticia|publicaci[oó]n)\s*:?\s*", re.I)
+
     @classmethod
     def _link_title(cls, attrs: str, inner: str) -> str:
         """Titular de un enlace: su texto, o las etiquetas si no tiene."""
@@ -194,6 +201,7 @@ class Collector:
                 candidate.group(1) if candidate else "")
             text = unescape(cls._TAG_RE.sub(" ", raw))
             text = re.sub(r"\s+", " ", text).strip()
+            text = cls._LABEL_PREFIX.sub("", text).strip()
             if len(text) >= cls._MIN_TITLE:
                 return text
         return ""
