@@ -288,3 +288,45 @@ def test_el_barrido_es_idempotente(db):
     segunda = sweep_events(db)
 
     assert segunda == {"retired": 0, "reattributed": 0, "geocoded": 0}
+
+
+# ── el mapa debe seguir los filtros de la lista ──────────────────────────
+# Fallo real: el mapa salía vacío en cuanto se filtraba por otro país. Solo
+# leía «scope» e ignoraba el resto, así que consultaba siempre los países
+# por defecto del usuario — con una cuenta seguida solo de México, filtrar
+# por Brasil dejaba el mapa buscando eventos mexicanos.
+
+def test_el_mapa_respeta_el_filtro_de_pais(db):
+    import os
+
+    from fastapi.testclient import TestClient
+
+    from atalaya.web import auth
+
+    run = _run(db)
+    br = _viejo(db, run, "Tiroteio deixa dois feridos no centro", country="BR",
+                urls=("https://g1.globo.com/rj/noticia/tiroteio-centro/",))
+    br.lat, br.lon = -15.7939, -47.8828
+    db.commit()
+
+    os.environ["ATALAYA_ADMIN_EMAIL"] = "admin@example.org"
+    os.environ["ATALAYA_ADMIN_PASSWORD"] = "admin-password-123"
+    auth.create_admin_from_env(db)
+    from atalaya.db.models import User
+    admin = db.scalar(select(User).where(User.email == "admin@example.org"))
+    admin.countries = ["MX"]          # el admin solo sigue México
+    db.commit()
+
+    from atalaya.web.app import app
+    client = TestClient(app)
+    cookie = client.post("/auth/login",
+                         data={"email": "admin@example.org",
+                               "password": "admin-password-123"},
+                         follow_redirects=False).cookies
+
+    sin_filtro = client.get("/dashboard/map.json", cookies=cookie).json()
+    assert sin_filtro["features"] == []        # BR no está entre sus países
+
+    con_filtro = client.get("/dashboard/map.json?country=BR", cookies=cookie).json()
+    assert len(con_filtro["features"]) == 1    # el filtro manda
+    assert con_filtro["features"][0]["geometry"]["coordinates"] == [-47.8828, -15.7939]

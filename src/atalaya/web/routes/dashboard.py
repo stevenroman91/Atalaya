@@ -85,12 +85,24 @@ def dashboard(request: Request,
 
 
 @router.get("/dashboard/map.json")
-def map_data(request: Request, scope: str | None = None,
+def map_data(request: Request,
+             country: list[str] | None = Query(default=None),
+             zone: str | None = None, category: str | None = None,
+             level: str | None = None, type: str | None = None,
+             date_from: str | None = None, date_to: str | None = None,
+             q: str | None = None, scope: str | None = None,
              user_sess=Depends(current_user), db: Session = Depends(get_db)):
+    """Puntos del mapa — con los MISMOS filtros que la lista.
+
+    Antes solo leía `scope` e ignoraba el resto: filtrar la lista por Brasil
+    dejaba el mapa buscando eventos de los países por defecto del usuario.
+    Con una cuenta seguida solo de México, el mapa salía vacío en cuanto se
+    miraba otro país. La lista y el mapa deben mostrar lo mismo.
+    """
     user, _ = user_sess
-    f = default_filters_for(user)
-    if scope == "all":
-        f.countries = []
+    f = _filters_from_query(user, country, zone, category, level, type,
+                            date_from, date_to, q, scope)
+    f.statuses = [EventStatus.published.value, EventStatus.pending_confirm.value]
     features = []
     for ev in query_events(db, f, limit=500):
         if ev.lat is None or ev.lon is None:

@@ -7,8 +7,11 @@
     maxZoom: 18,
     attribution: "&copy; OpenStreetMap",
   }).addTo(map);
-  var params = new URLSearchParams(window.location.search);
-  var url = "/dashboard/map.json" + (params.get("scope") === "all" ? "?scope=all" : "");
+  // Se reenvían TODOS los filtros de la página, no solo «scope»: el mapa
+  // debe mostrar lo mismo que la lista. Con solo «scope», filtrar por otro
+  // país dejaba el mapa buscando en los países por defecto del usuario.
+  var qs = window.location.search.replace(/^\?/, "");
+  var url = "/dashboard/map.json" + (qs ? "?" + qs : "");
   fetch(url)
     .then(function (r) { return r.json(); })
     .then(function (geo) {

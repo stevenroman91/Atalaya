@@ -219,7 +219,13 @@ class Collector:
         out: list[str] = []
         kept = {u for u, _ in cls._article_links_from_html(page_url, html, domain)}
         for m in cls._LINK_RE.finditer(html):
-            url = urljoin(page_url, m.group(1).strip()).split("#")[0]
+            href = m.group(1).strip()
+            # Plantillas Mustache/Handlebars sin compilar: la portada se
+            # construye en el navegador. No son rutas, son marcadores.
+            if "{{" in href:
+                out.append("(plantilla JS sin compilar)")
+                continue
+            url = urljoin(page_url, href).split("#")[0]
             if not url.startswith(("http://", "https://")):
                 continue
             if norm_domain(url) != domain or url in kept:
@@ -227,7 +233,11 @@ class Collector:
             path = urlparse(url).path
             if path and path != "/" and path not in out:
                 out.append(path)
-        return out
+        # Los enlaces de navegación abren toda portada y son siempre rutas
+        # cortas: mostrarlos primero no enseña nada. Se ordena por
+        # profundidad para que las rutas de artículo salgan a la vista.
+        out.sort(key=lambda p: -p.count("/"))
+        return list(dict.fromkeys(out))
 
     def _ingest_html_index(self, page_url: str, html: str, *, run: CollectRun,
                            country: Country, zone: Zone | None,
