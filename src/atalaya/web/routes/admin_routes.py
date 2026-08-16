@@ -327,8 +327,9 @@ async def sweep(request: Request, user_sess=Depends(require_admin),
     from atalaya.process.pipeline import sweep_events
 
     s = sweep_events(db)
-    msg = (f"{s['retired']} retirados · {s['reattributed']} reatribuidos · "
-           f"{s['geocoded']} geolocalizados · {s['retitled']} titulares limpiados")
+    msg = (f"{s['retired']} retirados · {s['reclassified']} reclasificados · "
+           f"{s['reattributed']} reatribuidos · {s['geocoded']} geolocalizados · "
+           f"{s['retitled']} titulares limpiados")
     return RedirectResponse(f"/admin?notice=swept&swept={quote_plus(msg)}",
                             status_code=303)
 

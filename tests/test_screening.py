@@ -288,7 +288,7 @@ def test_el_barrido_es_idempotente(db):
     segunda = sweep_events(db)
 
     assert segunda == {"retired": 0, "reattributed": 0, "geocoded": 0,
-                       "retitled": 0}
+                       "retitled": 0, "reclassified": 0}
 
 
 # ── el mapa debe seguir los filtros de la lista ──────────────────────────
@@ -614,3 +614,49 @@ def test_el_contador_a_revisar_a_mano_es_un_enlace(db):
     page = client.get("/dashboard", cookies=cookie)
 
     assert "cov_estado=revisar" in page.text
+
+
+# ── el barrido debe repasar la gravedad, no solo el perímetro ────────────
+# Tercera vez que tropezamos con lo mismo: corregir una regla no toca lo que
+# ya está en base. Los 26 «a confirmar» creados cuando la gravedad se leía
+# en el cuerpo del artículo se habrían quedado en el panel para siempre —
+# esperando una ventana de frescura que ya pasó.
+
+def test_el_barrido_retira_un_pendiente_sin_gravedad_en_el_titular(db):
+    from atalaya.process.pipeline import sweep_events
+
+    run = _run(db)
+    ev = _viejo(db, run, "Miltico llega a La Gran Sabana: la cicloaventura",
+                country="VE",
+                urls=("https://efectococuyo.com/miltico/",),
+                status=EventStatus.pending_confirm.value)
+    for ea in ev.articles:
+        ea.article.text = ("El joven viajero llegó a la Gran Sabana. " + "x" * 600
+                           + " Por la emergencia del doble terremoto, detuvo su ruta.")
+    db.commit()
+
+    stats = sweep_events(db)
+
+    assert stats["retired"] == 1
+    db.refresh(ev)
+    assert ev.status == EventStatus.discarded.value
+    assert "gravedad" in ev.score_detail["retirado"]
+
+
+def test_el_barrido_reclasifica_sin_retirar_lo_que_sigue_siendo_grave(db):
+    from atalaya.process.pipeline import sweep_events
+
+    run = _run(db)
+    ev = _viejo(db, run, "Terremoto de magnitud 6.8 sacude la costa de Guerrero",
+                urls=("https://www.eluniversal.com.mx/estados/sismo-guerrero/",),
+                status=EventStatus.pending_confirm.value)
+    for ea in ev.articles:      # el texto por defecto de _article es una balacera
+        ea.article.text = ("Un terremoto de magnitud 6.8 sacudió la costa de "
+                           "Guerrero este viernes. Protección Civil evalúa daños.")
+    db.commit()
+
+    sweep_events(db)
+
+    db.refresh(ev)
+    assert ev.status == EventStatus.pending_confirm.value   # sigue en pie
+    assert ev.category == "desastre_natural"                # y bien etiquetado

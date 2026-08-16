@@ -22,7 +22,7 @@ from atalaya.process import classifier
 from atalaya.process.cluster import Cluster, cluster_articles
 from atalaya.process.scoring import (
     classify_category, classify_level, classify_type, independent_source_count,
-    score_cluster,
+    score_cluster, severity_signals,
 )
 from atalaya.process.summarize import build_recommendations, build_summary, summary_version
 
@@ -198,10 +198,51 @@ def sweep_events(db: Session) -> dict:
     en el tratamiento diario, y eso obligaba a esperar una colecta entera
     —media hora— para aplicar una corrección de filtro.
     """
-    stats = {"retired": 0, "reattributed": 0, "geocoded": 0, "retitled": 0}
+    stats = {"retired": 0, "reattributed": 0, "geocoded": 0, "retitled": 0,
+             "reclassified": 0}
     _retire_screened_events(db, stats)
     db.commit()
     return stats
+
+
+def _rescore_event(ev: Event, stats: dict) -> None:
+    """Vuelve a juzgar gravedad y categoría de un evento ya publicado.
+
+    Tercera vez que tropezamos con lo mismo: corregir una regla no toca lo
+    que ya está en base. El barrido sabía repasar el perímetro y las
+    coordenadas, pero no la gravedad — así que los 26 eventos «a confirmar»
+    creados cuando la gravedad se leía en el cuerpo del artículo seguirían
+    en el panel indefinidamente, esperando una ventana de frescura que ya
+    pasó.
+
+    Solo léxico: ni una petición de red, para que el barrido siga tardando
+    segundos. El clasificador trabaja en la colecta.
+    """
+    articles = [ea.article for ea in ev.articles if ea.article]
+    if not articles:
+        return
+    country = load_countries().get(ev.country)
+    lang = country.lang if country else "es"
+    cluster = Cluster(articles=articles)
+    sev = severity_signals(cluster, lang)
+
+    # Un «a confirmar» se sostiene ÚNICAMENTE sobre la gravedad extrema: si
+    # ya no la hay, no queda nada que confirmar.
+    if ev.status == EventStatus.pending_confirm.value and not sev["extreme"]:
+        ev.status = EventStatus.discarded.value
+        ev.score_detail = {**(ev.score_detail or {}),
+                           "retirado": "sin gravedad extrema en el titular"}
+        stats["retired"] += 1
+        log.info("evento retirado [gravedad revisada] %s", (ev.title_es or "")[:100])
+        return
+
+    categoria = classify_category(cluster, lang)
+    tipo = classify_type(categoria, sev)
+    if (categoria, tipo) != (ev.category, ev.event_type):
+        ev.category, ev.event_type = categoria, tipo
+        if tipo != "ALERTA":
+            ev.recommendations_es = None   # no se recomienda sobre una nota
+        stats["reclassified"] = stats.get("reclassified", 0) + 1
 
 
 def _retire_screened_events(db: Session, stats: dict) -> None:
@@ -232,6 +273,8 @@ def _retire_screened_events(db: Session, stats: dict) -> None:
             stats["retired"] += 1
             log.info("evento retirado del panel [%s] %s", reason, (ev.title_es or "")[:100])
             continue
+
+        _rescore_event(ev, stats)
 
         limpio = strip_site_suffix(ev.title_es or "")
         if limpio and limpio != (ev.title_es or ""):
