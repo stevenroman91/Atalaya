@@ -17,7 +17,8 @@ import re
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
-from urllib.parse import quote_plus, urljoin
+from html import unescape
+from urllib.parse import quote_plus, urljoin, urlparse
 
 import feedparser
 from sqlalchemy import select, update
@@ -160,6 +161,88 @@ class Collector:
             if url.startswith(("http://", "https://")) and url not in out:
                 out.append(url)
         return out
+
+    # Algunos diarios no publican ningún flujo (los tres grandes paraguayos,
+    # por ejemplo: /feed, /rss y /rss.xml devuelven 404 mientras la portada
+    # responde 200). Último recurso: leer los enlaces de la portada.
+    #
+    # No es una transgresión de §robots: es la misma petición identificada
+    # «AtalayaBot/1.0», con robots.txt consultado y los mismos delays de
+    # cortesía que para cualquier página de artículo — que ya descargamos.
+    # Lo prohibido sigue siéndolo: disfrazarse de navegador o sortear una
+    # protección anti-robot. Si la portada nos bloquea, se acabó.
+    _MAX_INDEX_ARTICLES = 25
+
+    _LINK_RE = re.compile(r'<a[^>]+href=["\']([^"\']+)["\'][^>]*>(.*?)</a>', re.I | re.S)
+    _TAG_RE = re.compile(r"<[^>]+>")
+
+    @classmethod
+    def _article_links_from_html(cls, page_url: str, html: str,
+                                 domain: str) -> list[tuple[str, str]]:
+        """(URL, titular) de los artículos enlazados desde una portada.
+
+        El titular sale del texto del enlace: es lo que el medio muestra
+        como título, y lo que necesitan los filtros de sección y perímetro.
+        Nada se construye — solo se siguen enlaces presentes en la página.
+        """
+        out: list[tuple[str, str]] = []
+        seen: set[str] = set()
+        for m in cls._LINK_RE.finditer(html):
+            title = unescape(cls._TAG_RE.sub(" ", m.group(2)))
+            title = re.sub(r"\s+", " ", title).strip()
+            if len(title) < 25:            # menús, «Leer más», iconos
+                continue
+            url = urljoin(page_url, m.group(1).strip()).split("#")[0]
+            if not url.startswith(("http://", "https://")):
+                continue
+            if norm_domain(url) != domain:  # nada de enlaces salientes
+                continue
+            segments = [s for s in urlparse(url).path.split("/") if s]
+            if len(segments) < 2:          # portada o índice de sección
+                continue
+            if "-" not in segments[-1] and not segments[-1].isdigit():
+                continue                   # sin slug: no es un artículo
+            if url in seen:
+                continue
+            seen.add(url)
+            out.append((url, title))
+        return out
+
+    def _ingest_html_index(self, page_url: str, html: str, *, run: CollectRun,
+                           country: Country, zone: Zone | None,
+                           keyword: str | None, theme: str | None,
+                           window_hours: float,
+                           max_entries: int | None) -> int:
+        """Ingiere los artículos enlazados desde la portada de un medio.
+
+        Cada enlace pasa por `_ingest_entry` como cualquier entrada de flujo:
+        mismos filtros de sección y perímetro, mismo dédup, misma exigencia
+        de fecha real verificable. Sin fecha en la página, el artículo se
+        rechaza — no se inventa frescura.
+        """
+        domain = norm_domain(page_url)
+        links = self._article_links_from_html(page_url, html, domain)
+        if not links:
+            log.info("Portada sin enlaces de artículo utilizables: %s", page_url)
+            return 0
+        limit = max_entries or self._MAX_INDEX_ARTICLES
+        keep, dropped = links[:limit], links[limit:]
+        if dropped:
+            log.info("Portada %s: %d artículos leídos, %d omitidos (tope %d)",
+                     page_url, len(keep), len(dropped), limit)
+        self.stats["html_index"] = self.stats.get("html_index", 0) + 1
+        cutoff = utcnow() - timedelta(hours=window_hours)
+        stored = 0
+        for url, title in keep:
+            self._check_cancel(run)
+            self.stats["entries"] += 1
+            if self._ingest_entry({"link": url, "title": title}, run=run,
+                                  country=country, zone=zone, keyword=keyword,
+                                  theme=theme, cutoff=cutoff,
+                                  is_google_news=False):
+                stored += 1
+        self.db.commit()
+        return stored
 
     @staticmethod
     def _absolutize(domain: str, url: str | None) -> str | None:
@@ -448,21 +531,38 @@ class Collector:
         for source in load_sources():
             if not source.covers_country(country.code) or source.origin != country.code:
                 continue
-            feed = self.discover_rss(source)
-            if not feed:
-                continue
             before = self.stats["feeds"]
-            self.ingest_feed(feed, run=run, country=country, zone=None,
-                             keyword=None, theme=None, window_hours=window,
-                             is_google_news=False, allow_index=True)
+            feed = self.discover_rss(source)
+            if feed:
+                self.ingest_feed(feed, run=run, country=country, zone=None,
+                                 keyword=None, theme=None, window_hours=window,
+                                 is_google_news=False, allow_index=True)
             # «feeds» solo crece cuando algo se parseó como flujo real: si no
-            # se movió, la fuente no ha sido consultada de verdad y así debe
-            # figurar en el panel de cobertura.
+            # se movió, el medio no publica flujo utilizable. Antes se daba
+            # la fuente por perdida; ahora se lee su portada.
             if self.stats["feeds"] == before:
-                self.mark_source(source.domain, source.name, ok=False,
-                                 error="el flujo no devolvió entradas")
+                if self._scrape_home(source, run=run, country=country, window=window):
+                    self.mark_source(source.domain, source.name, ok=True)
+                else:
+                    self.mark_source(source.domain, source.name, ok=False,
+                                     error="sin flujo y portada sin artículos utilizables")
             else:
                 self.mark_source(source.domain, source.name, ok=True)
+
+    def _scrape_home(self, source, *, run: CollectRun, country: Country,
+                     window: float) -> bool:
+        """Lee la portada de un medio sin flujo. True si aportó artículos."""
+        home = f"https://{source.domain}/"
+        resp = self.fetcher.get(home)
+        if not resp:
+            return False
+        # la URL final tras redirecciones (abc.com.py → www.abc.com.py) es la
+        # base correcta para resolver los enlaces relativos de la página
+        base = str(getattr(resp, "url", "") or home)
+        return self._ingest_html_index(
+            base, resp.text, run=run, country=country, zone=None,
+            keyword=None, theme=None, window_hours=window,
+            max_entries=None) > 0
 
     def collect_daily(self, run: CollectRun, countries: list[str] | None = None) -> dict:
         sched = load_schedule()["daily"]

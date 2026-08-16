@@ -102,3 +102,64 @@ def test_entrada_sin_content_no_inventa_texto():
     # description es un teaser, no el artículo: no debe pasar por texto íntegro
     assert Collector._entry_html({"summary": "Un resumen corto"}) == ""
     assert Collector._entry_html({}) == ""
+
+
+# ── portada como último recurso ──────────────────────────────────────────
+# Los tres grandes diarios paraguayos no publican ningún flujo: /feed, /rss
+# y /rss.xml devuelven 404 mientras la portada responde 200. Sin este
+# recurso, tres fuentes de la lista blanca quedaban mudas.
+
+PORTADA_HTML = """
+<html><body>
+  <nav><a href="/">Inicio</a><a href="/deportes">Deportes</a></nav>
+  <a href="/nacionales/2026/08/16/balacera-deja-dos-heridos-en-asuncion/">
+     Balacera deja dos heridos en el centro de Asunción</a>
+  <a href="/policiales/2026/08/16/asalto-a-camion-de-caudales-en-luque/">
+     <h2>Asalto a camión de caudales en Luque deja un guardia herido</h2></a>
+  <a href="/nacionales/2026/08/16/balacera-deja-dos-heridos-en-asuncion/">
+     Balacera deja dos heridos en el centro de Asunción</a>
+  <a href="/politica/">Sección política</a>
+  <a href="/opinion/2026/08/16/la-columna-del-domingo/">
+     La columna del domingo sobre el futuro del país</a>
+  <a href="https://www.otrodiario.com/nota/2026/algo-que-paso-alla/">
+     Una noticia alojada en otro dominio cualquiera</a>
+  <a href="/nacionales/2026/08/16/otra-nota/">Leer</a>
+</body></html>
+"""
+
+
+def _links():
+    return Collector._article_links_from_html(
+        "https://www.abc.com.py/", PORTADA_HTML, "abc.com.py")
+
+
+def test_portada_extrae_articulos_con_su_titular():
+    urls = dict(_links())
+    assert ("https://www.abc.com.py/nacionales/2026/08/16/"
+            "balacera-deja-dos-heridos-en-asuncion/") in urls
+    # el titular sale del texto del enlace, con las etiquetas internas fuera
+    assert urls["https://www.abc.com.py/policiales/2026/08/16/"
+                "asalto-a-camion-de-caudales-en-luque/"] == (
+        "Asalto a camión de caudales en Luque deja un guardia herido")
+
+
+def test_portada_descarta_menus_secciones_y_dominios_ajenos():
+    urls = [u for u, _ in _links()]
+    assert not any(u.endswith("/politica/") for u in urls)      # índice de sección
+    assert not any("otrodiario.com" in u for u in urls)         # enlace saliente
+    assert not any(u.rstrip("/").endswith("/deportes") for u in urls)
+    assert not any(u.endswith("/otra-nota/") for u in urls)     # «Leer»: sin titular
+
+
+def test_portada_no_duplica_el_mismo_articulo():
+    urls = [u for u, _ in _links()]
+    assert len(urls) == len(set(urls))
+
+
+def test_la_columna_de_opinion_se_recoge_pero_el_filtro_la_descarta():
+    """La extracción no juzga: el filtro de sección sigue siendo el juez."""
+    from atalaya.collect.whitelist import off_topic_section
+
+    opinion = [u for u, _ in _links() if "/opinion/" in u]
+    assert opinion                                   # la portada la enlaza
+    assert off_topic_section(opinion[0]) == "opinion"  # y se descarta al ingerir
