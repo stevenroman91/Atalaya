@@ -168,10 +168,10 @@ def probe_api(key: str, cfg: dict, fetcher=None) -> tuple[bool, str]:
     prueba no pase, el colector ignora la API — nada entra en base porque la
     URL «parecía correcta».
     """
-    from atalaya.collect.apis import parse_gdacs, parse_gdelt, parse_usgs
+    from atalaya.collect.apis import api_url, parse_gdelt, parse_official
     from atalaya.collect.fetcher import PoliteFetcher
 
-    url = cfg.get("url") or ""
+    url = api_url(cfg)
     if not url:
         return False, "sin URL configurada"
     kind = cfg.get("kind")
@@ -196,14 +196,9 @@ def probe_api(key: str, cfg: dict, fetcher=None) -> tuple[bool, str]:
         if kind == "gdelt_doc":
             items = parse_gdelt(resp.json())
             muestra = items[0]["title"] if items else ""
-        elif kind == "usgs_geojson":
-            items = parse_usgs(resp.json(), float(cfg.get("min_magnitude", 4.0)))
-            muestra = items[0].title if items else ""
-        elif kind == "gdacs_rss":
-            items = parse_gdacs(resp.text, str(cfg.get("min_level", "orange")))
-            muestra = items[0].title if items else ""
         else:
-            return False, f"tipo desconocido: {kind}"
+            items = parse_official(cfg, resp)
+            muestra = items[0].title if items else ""
     except Exception as exc:
         return False, f"respuesta no parseable: {type(exc).__name__}"
 

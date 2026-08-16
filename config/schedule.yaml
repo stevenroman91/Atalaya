@@ -18,10 +18,11 @@ collector:
   request_delay_seconds: 1.5   # cortesía entre peticiones al mismo host
   per_host_delay_seconds:      # excepciones (infraestructuras de gran capacidad)
     news.google.com: 0.3
-    # GDELT nos devolvió 429 al segundo diagnóstico seguido: su API es
-    # gratuita y se protege. Diez consultas por colecta (una por país) a
-    # este ritmo son dos minutos, y no vuelve a echarnos.
-    api.gdeltproject.org: 12.0
+    # GDELT nos devolvió 429 repetidamente durante las pruebas manuales: su
+    # API es gratuita y limita por IP sobre una ventana, no por intervalo
+    # entre peticiones. 30 s hacen cinco minutos para los diez países una
+    # vez al día — invisible para un cron, decisivo para no ser expulsados.
+    api.gdeltproject.org: 30.0
   timeout_seconds: 12         # los sitios hostiles que no responden cuestan un timeout completo
   user_agent: "AtalayaBot/1.0 (+vigilancia de seguridad; contacto: admin)"
   max_articles_per_feed: 50

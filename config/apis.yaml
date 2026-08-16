@@ -39,3 +39,23 @@ apis:
     domain: "gdacs.org"
     # GDACS publica también el nivel verde: sin impacto, sin decisión.
     min_level: orange
+
+  reliefweb:
+    enabled: true
+    kind: reliefweb_json
+    name: "ReliefWeb (OCHA)"
+    url: "https://api.reliefweb.int/v1/disasters"
+    domain: "reliefweb.int"
+    # `appname` es obligatorio en su API: identifica al cliente, igual que
+    # nuestro User-Agent. No es una clave ni un secreto.
+    appname: "atalaya-vigilancia"
+    limit: 40
+
+  nhc:
+    enabled: true
+    kind: nhc_rss
+    name: "NOAA / NHC (ciclones)"
+    # Pacífico oriental: es la cuenca que toca México y Centroamérica. El
+    # Atlántico se añadirá si el operador confirma que aporta.
+    url: "https://www.nhc.noaa.gov/index-ep.xml"
+    domain: "nhc.noaa.gov"

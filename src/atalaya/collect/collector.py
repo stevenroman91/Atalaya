@@ -25,7 +25,9 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from atalaya.collect.apis import gdelt_query, parse_gdacs, parse_gdelt, parse_usgs
+from atalaya.collect.apis import (
+    _OFICIALES, api_url, gdelt_query, parse_gdelt, parse_official,
+)
 from atalaya.collect.extract import extract_article, text_from_feed_html, _parse_dt
 from atalaya.collect.fetcher import PoliteFetcher
 from atalaya.collect.whitelist import (
@@ -758,23 +760,17 @@ class Collector:
         nunca da: coordenadas exactas.
         """
         apis = load_apis()
-        for key, parse in (("usgs", "usgs"), ("gdacs", "gdacs")):
-            cfg = apis.get(key) or {}
-            if not self._api_ready(cfg):
+        for key, cfg in apis.items():
+            if cfg.get("kind") not in _OFICIALES or not self._api_ready(cfg):
                 continue
-            resp = self.fetcher.get(cfg["url"], retries=1)
+            resp = self.fetcher.get(api_url(cfg), retries=1)
             if not resp:
                 fallo = getattr(self.fetcher, "last_failure", None)
                 self.mark_source(cfg["domain"], cfg.get("name", key), ok=False,
                                  error=fallo[1] if fallo else "sin respuesta")
                 continue
             try:
-                if parse == "usgs":
-                    items = parse_usgs(resp.json(),
-                                       float(cfg.get("min_magnitude", 4.0)))
-                else:
-                    items = parse_gdacs(resp.text,
-                                        str(cfg.get("min_level", "orange")))
+                items = parse_official(cfg, resp)
             except Exception as exc:
                 self.mark_source(cfg["domain"], cfg.get("name", key), ok=False,
                                  error=f"respuesta no parseable: {type(exc).__name__}")

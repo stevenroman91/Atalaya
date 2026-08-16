@@ -197,10 +197,13 @@ def test_solo_se_reintenta_lo_transitorio():
     from atalaya.collect.fetcher import PoliteFetcher
 
     assert "transitoria" in PoliteFetcher._REINTENTABLES
-    assert "sobrecarga" in PoliteFetcher._REINTENTABLES
     assert "timeout" in PoliteFetcher._REINTENTABLES
     assert "bloqueada" not in PoliteFetcher._REINTENTABLES   # un 403 es una respuesta
     assert "robots" not in PoliteFetcher._REINTENTABLES      # y eso, una prohibición
+    # El 429 estuvo aquí y salió: es una petición explícita de bajar el
+    # ritmo. Reintentar dentro de la misma ventana la prolonga en vez de
+    # resolverla — GDELT nos lo repitió cuatro veces seguidas.
+    assert "sobrecarga" not in PoliteFetcher._REINTENTABLES
 
 
 def test_el_reintento_acaba_devolviendo_la_respuesta():
@@ -271,3 +274,72 @@ def test_el_cerrojo_se_suelta_aunque_el_hilo_reviente():
 
     assert admin_routes._PROBE_LOCK.acquire(blocking=False) is True
     admin_routes._PROBE_LOCK.release()
+
+
+# ── ReliefWeb y NOAA/NHC ─────────────────────────────────────────────────
+RELIEFWEB = json.dumps({"data": [
+    {"fields": {"name": "Guatemala: Inundaciones - Ago 2026", "status": "alert",
+                "url": "https://reliefweb.int/disaster/fl-2026-gtm",
+                "date": {"created": "2026-08-15T10:00:00+00:00"},
+                "country": [{"name": "Guatemala"}],
+                "type": [{"name": "Flood"}]}},
+    {"fields": {"name": "Philippines: Typhoon - 2026", "status": "alert",
+                "url": "https://reliefweb.int/disaster/tc-2026-phl",
+                "date": {"created": "2026-08-15T10:00:00+00:00"},
+                "country": [{"name": "Philippines"}]}},
+    {"fields": {"name": "Mexico: Sismo - 2019", "status": "past",
+                "url": "https://reliefweb.int/disaster/eq-2019-mex",
+                "date": {"created": "2019-09-19T10:00:00+00:00"},
+                "country": [{"name": "Mexico"}]}},
+]})
+
+NHC = """<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel>
+  <item>
+    <title>Tropical Storm Warning for the coast of Mexico</title>
+    <link>https://www.nhc.noaa.gov/ep1.shtml</link>
+    <description>A tropical storm warning is in effect for Mexico.</description>
+    <pubDate>Sat, 15 Aug 2026 15:00:00 GMT</pubDate>
+  </item>
+  <item>
+    <title>Hurricane approaching Hawaii</title>
+    <link>https://www.nhc.noaa.gov/ep2.shtml</link>
+    <description>No land areas of interest.</description>
+    <pubDate>Sat, 15 Aug 2026 15:00:00 GMT</pubDate>
+  </item>
+</channel></rss>"""
+
+
+def test_reliefweb_descarta_lo_pasado_y_lo_de_fuera():
+    from atalaya.collect.apis import parse_reliefweb
+
+    items = parse_reliefweb(json.loads(RELIEFWEB))
+    assert [i.country for i in items] == ["GT"]     # Filipinas fuera, 2019 cerrado
+    assert "Flood" in items[0].text
+
+
+def test_nhc_solo_conserva_lo_que_toca_el_perimetro():
+    """El Pacífico oriental cubre mucho más que nosotros: un huracán sobre
+    Hawái no cambia la conducta de nadie en Guatemala."""
+    from atalaya.collect.apis import parse_nhc
+
+    items = parse_nhc(NHC)
+    assert [i.country for i in items] == ["MX"]
+
+
+def test_reliefweb_lleva_su_appname_obligatorio():
+    from atalaya.collect.apis import api_url
+
+    url = api_url({"kind": "reliefweb_json", "url": "https://api.reliefweb.int/v1/disasters",
+                   "appname": "atalaya-vigilancia", "limit": 40})
+    assert "appname=atalaya-vigilancia" in url and "limit=40" in url
+
+
+def test_el_diagnostico_y_la_colecta_usan_el_mismo_despacho():
+    """Probar algo distinto de lo que se usará no prueba nada: ya nos pasó
+    con la consulta simplificada de GDELT."""
+    from atalaya.collect.apis import _OFICIALES
+    from atalaya.config import load_apis
+
+    for key, cfg in load_apis().items():
+        assert cfg["kind"] == "gdelt_doc" or cfg["kind"] in _OFICIALES, key

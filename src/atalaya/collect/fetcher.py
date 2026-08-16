@@ -99,10 +99,15 @@ class PoliteFetcher:
         return url
 
     # ── API ──────────────────────────────────────────────────────────────
-    # Fallos que merecen otro intento: el servidor cortó, se saturó o tardó.
-    # NUNCA se reintenta un 403 ni un robots.txt: no son incidentes, son
-    # respuestas — insistir sería justamente lo que no hacemos.
-    _REINTENTABLES = ("transitoria", "timeout", "sobrecarga")
+    # Fallos que merecen otro intento: el servidor cortó o tardó.
+    #
+    # El 429 NO está aquí, aunque lo estuvo. Un 429 es una petición explícita
+    # de bajar el ritmo: reintentar dentro de la misma ventana la prolonga en
+    # vez de resolverla — GDELT nos lo repitió cuatro veces seguidas. Se
+    # acata y se vuelve más tarde. Un 403 y un robots.txt tampoco: no son
+    # incidentes, son respuestas, e insistir sería justamente lo que no
+    # hacemos.
+    _REINTENTABLES = ("transitoria", "timeout")
 
     def get(self, url: str, check_robots: bool = True,
             retries: int = 0) -> httpx.Response | None:

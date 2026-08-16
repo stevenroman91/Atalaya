@@ -211,3 +211,118 @@ def _to_float(value) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+# ── ReliefWeb (OCHA) — situaciones humanitarias ──────────────────────────
+
+def parse_reliefweb(payload: dict) -> list[ApiItem]:
+    """API de ReliefWeb → desastres declarados en el perímetro.
+
+    ReliefWeb no publica sucesos del día: publica *situaciones* —una
+    inundación que dura tres semanas, un terremoto y sus réplicas—. Por eso
+    trae el estado («alert», «ongoing», «past») y por eso se descarta lo
+    pasado: una situación cerrada es historia, no vigilancia.
+    """
+    items: list[ApiItem] = []
+    for row in (payload or {}).get("data") or []:
+        f = row.get("fields") or {}
+        if (f.get("status") or "").lower() == "past":
+            continue
+        code = None
+        for c in f.get("country") or []:
+            code = country_from_place(c.get("name") or "")
+            if code:
+                break
+        if code is None:
+            continue
+        when = _iso_dt((f.get("date") or {}).get("created"))
+        if when is None:
+            continue
+        nombre = (f.get("name") or "").strip()
+        tipos = ", ".join(t.get("name", "") for t in (f.get("type") or []) if t.get("name"))
+        texto = f"{nombre}."
+        if tipos:
+            texto += f" Tipo de desastre: {tipos}."
+        texto += " Ficha de situación de ReliefWeb (OCHA)."
+        items.append(ApiItem(
+            url=(f.get("url") or "").strip(), title=nombre, text=texto,
+            published_at=when, country=code,
+            source_name="ReliefWeb (OCHA)", domain="reliefweb.int",
+            extra={"status": f.get("status")}))
+    return [i for i in items if i.url and i.title]
+
+
+def _iso_dt(raw: str | None) -> datetime | None:
+    if not raw:
+        return None
+    try:
+        dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
+# ── NOAA / NHC — ciclones ────────────────────────────────────────────────
+
+def parse_nhc(xml: str) -> list[ApiItem]:
+    """Boletines del National Hurricane Center → avisos del perímetro.
+
+    Solo se conservan los que nombran un país vigilado: el Atlántico y el
+    Pacífico oriental cubren mucho más que nuestro perímetro, y un huracán
+    que gira hacia Florida no cambia la conducta de nadie en Guatemala.
+    """
+    feed = feedparser.parse(xml or "")
+    items: list[ApiItem] = []
+    for e in feed.entries:
+        titulo = (e.get("title") or "").strip()
+        cuerpo = (e.get("summary") or e.get("description") or "").strip()
+        code = country_from_place(f"{titulo} {cuerpo}")
+        if code is None:
+            continue
+        when = _entry_dt(e)
+        if when is None:
+            continue
+        items.append(ApiItem(
+            url=(e.get("link") or "").strip(), title=titulo,
+            text=cuerpo or titulo, published_at=when, country=code,
+            source_name="NOAA / National Hurricane Center", domain="nhc.noaa.gov"))
+    return [i for i in items if i.url and i.title]
+
+
+# ── despacho común de las API oficiales ──────────────────────────────────
+# Las cuatro traen hechos ya formados (no URLs de prensa) y siguen el mismo
+# camino: una URL, una respuesta, una lista de ApiItem. Tenerlo en un solo
+# sitio evita que el colector y el diagnóstico diverjan — probar algo
+# distinto de lo que se usará no prueba nada, y ya nos pasó una vez.
+
+_OFICIALES = ("usgs_geojson", "gdacs_rss", "reliefweb_json", "nhc_rss")
+
+
+def api_url(cfg: dict) -> str:
+    """URL final de una API oficial, con sus parámetros obligatorios."""
+    url = cfg.get("url") or ""
+    if cfg.get("kind") == "reliefweb_json":
+        # `appname` es obligatorio en la API de ReliefWeb: identifica al
+        # cliente, como nuestro User-Agent. No es una clave.
+        from urllib.parse import urlencode
+        url += "?" + urlencode({
+            "appname": cfg.get("appname", "atalaya"),
+            "profile": "list",
+            "preset": "latest",
+            "limit": int(cfg.get("limit", 40)),
+        })
+    return url
+
+
+def parse_official(cfg: dict, resp) -> list[ApiItem]:
+    """Respuesta → hechos, según el tipo declarado en config."""
+    kind = cfg.get("kind")
+    if kind == "usgs_geojson":
+        return parse_usgs(resp.json(), float(cfg.get("min_magnitude", 4.0)))
+    if kind == "gdacs_rss":
+        return parse_gdacs(resp.text, str(cfg.get("min_level", "orange")))
+    if kind == "reliefweb_json":
+        return parse_reliefweb(resp.json())
+    if kind == "nhc_rss":
+        return parse_nhc(resp.text)
+    raise ValueError(f"tipo de API desconocido: {kind}")
