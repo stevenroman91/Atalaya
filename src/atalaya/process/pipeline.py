@@ -146,6 +146,13 @@ def _ask_classifier(db: Session, *, key: str, title: str, summary: str | None,
     Cachea por huella del texto juzgado: un re-run sobre el mismo titular y
     el mismo resumen no vuelve a pagar. El techo por colecta protege la
     factura si un día llegan mil clusters en vez de treinta.
+
+    Dos límites de la cache, aprendidos de golpe. Un veredicto guardado
+    ANTES de que existiera el campo de confianza no dice nada sobre su
+    propia certeza: devolverlo tal cual lo haría pasar por seguro. Se
+    considera caducado y se vuelve a preguntar. Y el umbral pertenece al
+    operador, no al veredicto: se reevalúa a cada lectura para que cambiarlo
+    en `schedule.yaml` surta efecto sobre el stock sin repagar el modelo.
     """
     if classifier.backend() == "none":
         return None
@@ -156,9 +163,11 @@ def _ask_classifier(db: Session, *, key: str, title: str, summary: str | None,
 
     huella = classifier.fingerprint(title, summary)
     previo = db.scalar(select(Event).where(Event.dedup_key == key))
-    if previo and (previo.score_detail or {}).get("clasificador", {}).get("huella") == huella:
+    cache = ((previo.score_detail or {}).get("clasificador") or {}) if previo else {}
+    if cache.get("huella") == huella and cache.get("confianza") is not None:
         stats["classifier_cached"] = stats.get("classifier_cached", 0) + 1
-        return previo.score_detail["clasificador"]
+        return {**cache,
+                "dudoso": float(cache["confianza"]) < classifier.threshold()}
 
     veredicto = classifier.classify(title, summary, country)
     if veredicto is None:

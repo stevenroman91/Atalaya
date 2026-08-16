@@ -380,3 +380,76 @@ def test_el_umbral_se_lee_de_la_config():
     from atalaya.process.classifier import threshold
 
     assert threshold() == 0.9
+
+
+def _evento_con_veredicto(db, run, veredicto, **kw):
+    from atalaya.db.models import EventStatus
+
+    datos = dict(run_id=run.id, dedup_key="k-cache", country="MX",
+                 title_es="Balacera deja dos heridos en el centro",
+                 summary_es="Sujetos armados dispararon contra un grupo.",
+                 summary_version="v", event_type="ALERTA",
+                 category="crimen_alto_impacto", level="advertencia",
+                 status=EventStatus.published.value, recurrence=2,
+                 independent_sources=2, has_state_media=False)
+    datos.update(kw)
+    ev = Event(**datos, score_detail={"clasificador": {
+        **veredicto,
+        "huella": classifier.fingerprint(datos["title_es"], datos["summary_es"]),
+    }})
+    db.add(ev)
+    db.commit()
+    return ev
+
+
+def test_un_veredicto_en_cache_sin_confianza_se_vuelve_a_preguntar(db, veredictos):
+    """Los veredictos guardados antes de que existiera el umbral no dicen
+    nada sobre su propia certeza. La cache los devolvía tal cual y pasaban
+    por seguros: el umbral no surtía efecto sobre el stock existente."""
+    from atalaya.process.pipeline import reclassify_events
+
+    _evento_con_veredicto(db, _run(db), {
+        "es_seguridad": True, "categoria": "crimen_alto_impacto",
+        "motivo": "veredicto anterior al umbral"})
+
+    stats = reclassify_events(db)
+
+    assert len(veredictos) == 1                    # se ha vuelto a preguntar
+    assert stats["classified"] == 1
+    assert stats["classifier_cached"] == 0
+
+
+def test_el_umbral_se_reevalua_sobre_la_cache(db, veredictos, monkeypatch):
+    """El umbral pertenece al operador, no al veredicto: subirlo en
+    `schedule.yaml` debe marcar el stock existente sin repagar el modelo."""
+    from atalaya.process.pipeline import reclassify_events
+
+    ev = _evento_con_veredicto(db, _run(db), {
+        "es_seguridad": True, "categoria": "crimen_alto_impacto",
+        "motivo": "violencia armada con víctimas",
+        "confianza": 0.95, "dudoso": False})
+    monkeypatch.setattr(classifier, "threshold", lambda: 0.99)
+
+    stats = reclassify_events(db)
+
+    db.refresh(ev)
+    assert veredictos == []                        # sin llamada al modelo
+    assert stats["classifier_cached"] == 1
+    assert stats["dudosos"] == 1
+    assert ev.score_detail["clasificador"]["dudoso"] is True
+
+
+def test_un_veredicto_sin_confianza_declarada_se_expone_igual(db):
+    """Su etiqueta se aplicó sin que nadie sepa con qué certeza. Callarlo
+    sería hacerlo pasar por seguro."""
+    from atalaya.web.events_view import EventFilters, doubtful_events
+
+    _evento_con_veredicto(db, _run(db), {
+        "es_seguridad": True, "categoria": "crimen_alto_impacto",
+        "motivo": "veredicto anterior al umbral"})
+
+    filas = doubtful_events(db, EventFilters(countries=["MX"]))
+
+    assert len(filas) == 1
+    assert filas[0]["confianza"] is None
+    assert filas[0]["propuesta"] == "crimen_alto_impacto"

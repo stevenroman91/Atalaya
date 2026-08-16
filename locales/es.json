@@ -193,5 +193,6 @@
   "doubt_now": "Etiqueta actual",
   "doubt_proposal": "Propuesta del modelo",
   "doubt_why": "Motivo",
-  "doubt_confidence": "confianza"
+  "doubt_confidence": "confianza",
+  "doubt_noconf": "confianza no declarada"
 }

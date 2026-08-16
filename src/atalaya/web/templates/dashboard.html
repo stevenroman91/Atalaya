@@ -191,7 +191,7 @@
       <td><span class="tag">{{ t('cat_' + d.actual) if d.actual else '—' }}</span>
         <br><span class="muted small">{{ t('event_type_' + d.event.event_type) }}</span></td>
       <td><span class="tag warn">{{ t('cat_' + d.propuesta) if d.propuesta else '—' }}</span>
-        <br><span class="muted small">{{ t('doubt_confidence') }} {{ (d.confianza * 100) | round | int if d.confianza is not none else '?' }} %</span></td>
+        <br><span class="muted small">{% if d.confianza is not none %}{{ t('doubt_confidence') }} {{ (d.confianza * 100) | round | int }} %{% else %}{{ t('doubt_noconf') }}{% endif %}</span></td>
       <td class="small">{{ d.motivo or '—' }}</td>
     </tr>
     {% endfor %}

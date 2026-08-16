@@ -160,11 +160,17 @@ def doubtful_events(db: Session, f: EventFilters, lang: str = "es",
     decida. Es la doctrina del proyecto en una pantalla — no trancher, pero
     exposer l'incertitude: se ve lo que el modelo proponía, con qué certeza
     y por qué, junto a la etiqueta que el evento conserva mientras tanto.
+
+    Un veredicto sin confianza declarada —guardado antes de que existiera el
+    umbral— también entra aquí: su etiqueta se aplicó sin que nadie sepa con
+    qué certeza. Callarlo sería hacerlo pasar por seguro.
     """
     out = []
     for ev in query_events(db, replace(f, hide_nonsec=False), limit=200):
         v = (ev.score_detail or {}).get("clasificador") or {}
-        if not v.get("dudoso"):
+        if not v:
+            continue                  # sin veredicto: nada que exponer aquí
+        if not v.get("dudoso") and v.get("confianza") is not None:
             continue
         loc = localize_event(ev, lang, tz)
         out.append({
