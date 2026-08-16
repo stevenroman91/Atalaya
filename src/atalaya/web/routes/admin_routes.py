@@ -25,6 +25,27 @@ router = APIRouter(prefix="/admin")
 
 log = logging.getLogger(__name__)
 
+# Un solo diagnóstico a la vez, en todo el proceso. Sin esto, dos clics
+# seguidos lanzan dos hilos con su propio fetcher: cada uno respeta el
+# retardo de cortesía por su cuenta e ignora al otro, así que juntos
+# martillean el mismo host. Es exactamente lo que pasó con GDELT — el 429
+# no venía de su API caprichosa, venía de nosotros dos veces.
+_PROBE_LOCK = threading.Lock()
+
+
+def _releasing(fn):
+    """Envuelve el cuerpo de un hilo de diagnóstico: pase lo que pase, el
+    cerrojo se suelta. Un hilo que muere con el cerrojo en la mano deja el
+    botón inutilizable hasta el próximo despliegue."""
+    def wrapped():
+        try:
+            fn()
+        except Exception:
+            log.exception("hilo de diagnóstico falló")
+        finally:
+            _PROBE_LOCK.release()
+    return wrapped
+
 
 @router.get("")
 def admin_home(request: Request, invite_link: str | None = None, error: str | None = None,
@@ -185,13 +206,20 @@ def probe_api(key: str, cfg: dict, fetcher=None) -> tuple[bool, str]:
     return True, detalle
 
 
-def _probe_apis_in_background() -> None:
-    """Prueba las API una tras otra y guarda el veredicto."""
+def _probe_apis_in_background() -> bool:
+    """Prueba las API una tras otra y guarda el veredicto.
+
+    Devuelve False si ya hay un diagnóstico en marcha: mejor decirlo que
+    duplicar las peticiones a espaldas del que las recibe.
+    """
     from atalaya.collect.fetcher import PoliteFetcher
     from atalaya.config import load_apis
     from atalaya.db import SessionLocal
 
-    def worker():
+    if not _PROBE_LOCK.acquire(blocking=False):
+        return False
+
+    def probar_todas():
         fetcher = PoliteFetcher()
         with SessionLocal() as job_db:
             for key, cfg in load_apis().items():
@@ -223,29 +251,39 @@ def _probe_apis_in_background() -> None:
                     rec.last_error = note[:500]
                 job_db.commit()
 
+    worker = _releasing(probar_todas)
+
     threading.Thread(target=worker, daemon=True, name="probe-apis").start()
+    return True
 
 
 @router.post("/probe-apis")
 async def probe_apis(request: Request, user_sess=Depends(require_admin),
                      db: Session = Depends(get_db)):
     await check_csrf(request, user_sess)
-    _probe_apis_in_background()
     # aviso propio: el genérico decía «un par de minutos» y mandaba recargar
     # sin decir dónde mirar. Son tres peticiones: unos segundos.
-    return RedirectResponse("/admin?notice=probing_apis", status_code=303)
+    lanzado = _probe_apis_in_background()
+    return RedirectResponse(
+        "/admin?notice=probing_apis" if lanzado else "/admin?notice=probe_busy",
+        status_code=303)
 
 
-def _probe_all_in_background() -> None:
+def _probe_all_in_background() -> bool:
     """Diagnostica en un hilo todas las fuentes en fallo, una tras otra.
 
     Secuencial a propósito: son peticiones a sitios que ya nos cuestan
-    trabajo, y la cortesía del fetcher no se negocia por comodidad.
+    trabajo, y la cortesía del fetcher no se negocia por comodidad. Por lo
+    mismo, uno a la vez: dos hilos a la vez no son dos veces más rápidos,
+    son dos veces más groseros.
     """
     from atalaya.collect.fetcher import PoliteFetcher
     from atalaya.db import SessionLocal
 
-    def worker():
+    if not _PROBE_LOCK.acquire(blocking=False):
+        return False
+
+    def diagnosticar_todas():
         fetcher = PoliteFetcher()
         with SessionLocal() as job_db:
             failing = list(job_db.scalars(
@@ -260,7 +298,10 @@ def _probe_all_in_background() -> None:
                 src.probe_at = datetime.now(timezone.utc)
                 job_db.commit()                               # visible al recargar
 
+    worker = _releasing(diagnosticar_todas)
+
     threading.Thread(target=worker, daemon=True, name="probe-all").start()
+    return True
 
 
 @router.post("/sweep")
@@ -286,8 +327,10 @@ async def sweep(request: Request, user_sess=Depends(require_admin),
 async def probe_all(request: Request, user_sess=Depends(require_admin),
                     db: Session = Depends(get_db)):
     await check_csrf(request, user_sess)
-    _probe_all_in_background()
-    return RedirectResponse("/admin?notice=probing", status_code=303)
+    lanzado = _probe_all_in_background()
+    return RedirectResponse(
+        "/admin?notice=probing" if lanzado else "/admin?notice=probe_busy",
+        status_code=303)
 
 
 @router.post("/probe-home")

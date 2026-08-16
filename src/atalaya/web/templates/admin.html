@@ -10,6 +10,7 @@
 {% elif notice == 'cancelling' %}<p class="ok">{{ t('admin_collect_cancelling') }}</p>
 {% elif notice == 'probing' %}<p class="ok">{{ t('admin_probing') }}</p>
 {% elif notice == 'probing_apis' %}<p class="ok">{{ t('admin_probing_apis') }}</p>
+{% elif notice == 'probe_busy' %}<p class="error">{{ t('admin_probe_busy') }}</p>
 {% elif notice == 'swept' %}<p class="ok">{{ t('admin_swept') }}{% if swept %} — {{ swept }}{% endif %}</p>{% endif %}
 {% if invite_link %}
 <div class="invitelink">

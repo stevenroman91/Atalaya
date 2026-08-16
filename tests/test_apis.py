@@ -217,3 +217,49 @@ def test_el_reintento_acaba_devolviendo_la_respuesta():
 
     assert resp is not None and intentos["n"] == 2
     assert f.last_failure is None
+
+
+# ── un solo diagnóstico a la vez ─────────────────────────────────────────
+# Log de producción: dos clics en «Probar las API» con 20 s de diferencia →
+# dos hilos, cada uno con su propio fetcher, cada uno respetando el retardo
+# de cortesía por su cuenta e ignorando al otro. Juntos martillearon GDELT,
+# que respondió 429. El 429 no venía de su API: venía de nosotros dos veces.
+
+def test_dos_diagnosticos_a_la_vez_no_se_lanzan():
+    import threading
+    import time
+
+    from atalaya.web.routes import admin_routes
+
+    soltar = threading.Event()
+    admin_routes._PROBE_LOCK.acquire()
+
+    def liberar():
+        soltar.wait(5)
+        admin_routes._PROBE_LOCK.release()
+
+    threading.Thread(target=liberar, daemon=True).start()
+    try:
+        # con el cerrojo tomado, un segundo lanzamiento se niega en vez de
+        # duplicar las peticiones a espaldas de quien las recibe
+        assert admin_routes._probe_apis_in_background() is False
+        assert admin_routes._probe_all_in_background() is False
+    finally:
+        soltar.set()
+        time.sleep(0.05)
+
+
+def test_el_cerrojo_se_suelta_aunque_el_hilo_reviente():
+    """Un hilo que muere con el cerrojo en la mano deja el botón muerto
+    hasta el próximo despliegue."""
+    from atalaya.web.routes import admin_routes
+
+    admin_routes._PROBE_LOCK.acquire()
+
+    def explota():
+        raise RuntimeError("boom")
+
+    admin_routes._releasing(explota)()
+
+    assert admin_routes._PROBE_LOCK.acquire(blocking=False) is True
+    admin_routes._PROBE_LOCK.release()

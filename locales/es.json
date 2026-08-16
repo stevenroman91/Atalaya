@@ -169,5 +169,6 @@
   "cov_st_tls": "certificado inválido",
   "cov_blocked_n": "cerradas para nosotros",
   "admin_probing_apis": "Prueba de las API lanzada — son tres peticiones, unos segundos. Recarga esta página: el resultado aparece justo abajo, y también en «Cobertura por país».",
-  "cov_api_fallando": "probada, pero el último intento falló"
+  "cov_api_fallando": "probada, pero el último intento falló",
+  "admin_probe_busy": "Ya hay un diagnóstico en marcha. Espera a que termine: lanzar dos a la vez duplica las peticiones a los mismos sitios — es así como GDELT nos respondió 429."
 }
