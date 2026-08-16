@@ -10,6 +10,9 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from atalaya.collect.whitelist import (
+    event_abroad, off_topic_section, perimeter_country_for,
+)
 from atalaya.config import load_countries, load_schedule, zone_by_id
 from atalaya.db.models import (
     Article, ArticleStatus, CollectRun, Event, EventArticle, EventStatus,
@@ -34,9 +37,73 @@ def _cluster_occurred_at(cluster: Cluster) -> datetime | None:
     return min(dates) if dates else None
 
 
+def _screen_stored(db: Session, code: str, articles: list[Article], stats: dict) -> list[Article]:
+    """Aplica los filtros de pertinencia a los artículos YA guardados.
+
+    La selección va por ventana de frescura, no por run: cada noche se
+    vuelven a leer artículos ingeridos por versiones anteriores del
+    recolector, anteriores a estos filtros. Sin este paso, un artículo
+    pernicioso guardado ayer sigue generando su evento hasta salir de la
+    ventana — filtrar solo en la ingesta no basta.
+
+    No se borra nada: el artículo queda en base con estado «rechazado» y el
+    motivo, recuperable por el analista.
+    """
+    kept: list[Article] = []
+    for a in articles:
+        section = off_topic_section(a.url or "")
+        if section:
+            a.status = ArticleStatus.rejected.value
+            a.reject_reason = f"sección ajena a la vigilancia: {section}"
+            stats["screened"] += 1
+            log.info("descartado en tratamiento [%s] %s", a.reject_reason, a.title[:100])
+            continue
+
+        abroad = event_abroad(code, a.title)
+        if abroad:
+            other = perimeter_country_for(abroad)
+            if other and other != code:
+                # el hecho está en otro país vigilado: se reatribuye, no se
+                # pierde. Lo tratará el bucle de ese país (este run o el
+                # siguiente, según el orden de configuración).
+                a.country = other
+                a.zone_id = None
+                stats["reattributed"] += 1
+            else:
+                a.status = ArticleStatus.rejected.value
+                a.reject_reason = f"hecho localizado fuera del perímetro: {abroad}"
+                stats["screened"] += 1
+                log.info("descartado en tratamiento [%s] %s", a.reject_reason, a.title[:100])
+            continue
+
+        kept.append(a)
+    return kept
+
+
+def _retire_screened_events(db: Session, stats: dict) -> None:
+    """Retira del panel los eventos cuyos artículos han sido todos rechazados.
+
+    El filtro de ingesta impide que entren hechos nuevos irrelevantes, pero
+    no toca los eventos ya creados: seguirían mostrándose hasta envejecer.
+    Se pasan a «descartado» —no se borran— para que el analista pueda
+    revisarlos y contradecir el juicio del filtro.
+    """
+    live = (EventStatus.published.value, EventStatus.pending_confirm.value)
+    events = list(db.scalars(select(Event).where(Event.status.in_(live))))
+    for ev in events:
+        articles = [ea.article for ea in ev.articles]
+        if not articles:
+            continue
+        if all(a.status == ArticleStatus.rejected.value for a in articles):
+            ev.status = EventStatus.discarded.value
+            stats["retired"] += 1
+            log.info("evento retirado del panel: %s — %s", ev.title_es[:100],
+                     articles[0].reject_reason or "artículos rechazados")
+
+
 def process_daily(db: Session, run: CollectRun, countries_filter: list[str] | None = None) -> dict:
     stats = {"clusters": 0, "published": 0, "pending_confirm": 0, "discarded": 0,
-             "updated": 0}
+             "updated": 0, "screened": 0, "reattributed": 0, "retired": 0}
     countries = load_countries()
     zones = zone_by_id()
 
@@ -57,6 +124,7 @@ def process_daily(db: Session, run: CollectRun, countries_filter: list[str] | No
                 Article.theme.is_(None),   # los artículos temáticos son del flujo semanal
             )
         ))
+        articles = _screen_stored(db, code, articles, stats)
         if not articles:
             continue
 
@@ -140,5 +208,8 @@ def process_daily(db: Session, run: CollectRun, countries_filter: list[str] | No
             for a in cluster.articles:
                 if a.id not in linked:
                     db.add(EventArticle(event_id=event.id, article_id=a.id))
+
+    db.flush()          # los rechazos deben ser visibles para el barrido
+    _retire_screened_events(db, stats)
     db.commit()
     return stats
