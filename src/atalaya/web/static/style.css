@@ -499,3 +499,10 @@ td.links summary.warn-sum { color: var(--warn-text); }
 }
 .urllist li { margin-bottom: .35rem; }
 .urllist a { word-break: break-word; }
+.dot-bloqueada { background: var(--warn); }
+.dot-robots { background: var(--muted); }
+.dot-dns, .dot-tls { background: var(--alert); }
+tr.cov-dns td:first-child, tr.cov-tls td:first-child { box-shadow: inset 3px 0 0 var(--alert); }
+tr.cov-bloqueada td:first-child { box-shadow: inset 3px 0 0 var(--warn); }
+/* robots.txt: no es un fallo nuestro y no hay nada que arreglar. */
+tr.cov-robots { opacity: .62; }

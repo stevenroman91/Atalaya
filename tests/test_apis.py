@@ -135,3 +135,37 @@ def test_las_coordenadas_de_la_fuente_ganan_al_centroide(db):
     ev = db.scalar(select(Event))
     assert ev is not None
     assert (ev.lat, ev.lon) == (14.68, -92.14)
+
+
+# ── el motivo del fallo, no «no se pudo» ─────────────────────────────────
+# Log de producción: latribuna.hn 403, laprensagrafica.com prohibida por
+# robots.txt, 100noticias.com.ni no resuelve, diarioelmundo.com con el
+# certificado roto. Cuatro causas, cuatro acciones distintas — y una de
+# ellas, robots.txt, no pide ninguna acción: se acata.
+
+def test_cada_causa_de_fallo_tiene_su_estado():
+    from atalaya.web.routes.coverage import _causa
+
+    assert _causa("sin flujo; robots.txt del sitio nos lo prohíbe") == "robots"
+    assert _causa("sin flujo; el sitio nos responde 403") == "bloqueada"
+    assert _causa("sin flujo; el dominio no resuelve — ¿cambió de nombre?") == "dns"
+    assert _causa("sin flujo; certificado del sitio inválido (no lo saltamos)") == "tls"
+    assert _causa("sin flujo; portada sin artículos legibles") == "inalcanzable"
+    assert _causa(None) == "inalcanzable"
+
+
+def test_robots_txt_no_cuenta_como_a_revisar_a_mano():
+    """No se arregla: se acata. Contarlo inflaba la lista de tareas con
+    fuentes sobre las que no hay nada que decidir."""
+    from atalaya.web.routes.coverage import ACCIONABLE
+
+    assert "robots" not in ACCIONABLE
+    assert "bloqueada" not in ACCIONABLE      # tampoco: no nos disfrazamos
+    assert "dns" in ACCIONABLE                # eso sí: config a corregir
+
+
+def test_el_fetcher_dice_por_que_falló():
+    from atalaya.collect.fetcher import _classify_transport
+
+    assert _classify_transport(Exception("[Errno -2] Name or service not known"))[0] == "dns"
+    assert _classify_transport(Exception("CERTIFICATE_VERIFY_FAILED"))[0] == "tls"

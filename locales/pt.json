@@ -162,5 +162,10 @@
   "cov_api_ok": "testada e ativa",
   "cov_api_untested": "não testada — sem uso",
   "cov_api_off": "desativada na config",
-  "cov_api_never": "nunca testada"
+  "cov_api_never": "nunca testada",
+  "cov_st_robots": "excluída por robots.txt",
+  "cov_st_bloqueada": "o site bloqueia-nos",
+  "cov_st_dns": "o domínio não resolve",
+  "cov_st_tls": "certificado inválido",
+  "cov_blocked_n": "fechadas para nós"
 }

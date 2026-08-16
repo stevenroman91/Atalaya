@@ -37,6 +37,8 @@ class PoliteFetcher:
         self._robots_lock = threading.Lock()
         # En tests, todas las peticiones se reescriben hacia el servidor de fixtures.
         self.base_url_override = base_url_override
+        # causa del último fallo: (clave, texto legible) o None
+        self.last_failure: tuple[str, str] | None = None
         self.client = httpx.Client(
             headers={
                 "User-Agent": self.user_agent,  # identificable (§9), sin disfraz
@@ -98,18 +100,39 @@ class PoliteFetcher:
 
     # ── API ──────────────────────────────────────────────────────────────
     def get(self, url: str, check_robots: bool = True) -> httpx.Response | None:
+        """Devuelve la respuesta, o None. La causa del fallo queda en
+        `last_failure` — «no se pudo» no es un diagnóstico.
+
+        Un 403 (el sitio nos bloquea), un robots.txt que nos prohíbe, un
+        dominio que no resuelve y un certificado caducado exigen tres
+        acciones distintas, y una de ellas no exige ninguna. Contarlos
+        juntos como «inalcanzable» llenaba la lista de «revisar a mano» de
+        cosas que no se pueden arreglar.
+        """
+        self.last_failure = None
         if not url.startswith(("http://", "https://")):
             log.warning("URL no absoluta rechazada: %r", url)
+            self.last_failure = ("invalida", "URL no absoluta")
             return None
         if check_robots and not self.allowed(url):
             log.info("robots.txt prohíbe %s", url)
+            self.last_failure = ("robots", "robots.txt del sitio nos lo prohíbe")
             return None
         self._wait_politely(url)
         try:
             resp = self.client.get(self._rewrite(url))
             resp.raise_for_status()
             return resp
+        except httpx.HTTPStatusError as exc:
+            code = exc.response.status_code
+            if code in (401, 403, 429):
+                self.last_failure = ("bloqueada", f"el sitio nos responde {code}")
+            else:
+                self.last_failure = ("error_http", f"respuesta {code}")
+            log.warning("fetch falló %s: %s", url, exc)
+            return None
         except httpx.HTTPError as exc:
+            self.last_failure = _classify_transport(exc)
             log.warning("fetch falló %s: %s", url, exc)
             return None
 
@@ -136,6 +159,18 @@ class PoliteFetcher:
 
     def close(self) -> None:
         self.client.close()
+
+
+def _classify_transport(exc: Exception) -> tuple[str, str]:
+    """Causa legible de un fallo de red. Los mensajes vienen de httpx/ssl."""
+    msg = str(exc)
+    if "Name or service not known" in msg or "nodename nor servname" in msg:
+        return ("dns", "el dominio no resuelve — ¿cambió de nombre?")
+    if "CERTIFICATE_VERIFY_FAILED" in msg or "SSLError" in type(exc).__name__:
+        return ("tls", "certificado del sitio inválido (no lo saltamos)")
+    if "timed out" in msg.lower() or "Timeout" in type(exc).__name__:
+        return ("timeout", "el sitio no respondió a tiempo")
+    return ("red", msg[:120])
 
 
 _GN_ARTICLE_RE = re.compile(r"news\.google\.com/(?:rss/)?articles/([^?/]+)")

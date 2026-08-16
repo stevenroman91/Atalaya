@@ -162,5 +162,10 @@
   "cov_api_ok": "probada y activa",
   "cov_api_untested": "sin probar — no se usa",
   "cov_api_off": "desactivada en config",
-  "cov_api_never": "nunca probada"
+  "cov_api_never": "nunca probada",
+  "cov_st_robots": "excluida por robots.txt",
+  "cov_st_bloqueada": "el sitio nos bloquea",
+  "cov_st_dns": "el dominio no resuelve",
+  "cov_st_tls": "certificado inválido",
+  "cov_blocked_n": "cerradas para nosotros"
 }

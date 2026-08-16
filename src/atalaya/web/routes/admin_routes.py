@@ -103,9 +103,14 @@ def probe_domain(domain: str, fetcher=None) -> str:
     from atalaya.collect.whitelist import norm_domain, off_topic_section
 
     d = norm_domain(domain)
-    resp = (fetcher or PoliteFetcher()).get(f"https://{d}/")
+    f = fetcher or PoliteFetcher()
+    resp = f.get(f"https://{d}/")
     if not resp:
-        return "portada inalcanzable (robots.txt lo impide o el sitio no responde)"
+        # «inalcanzable» a secas no dice qué hacer. Un 403 y un robots.txt
+        # que nos prohíbe no piden la misma respuesta — y ante el segundo la
+        # respuesta correcta es no volver a llamar.
+        clave, texto = getattr(f, "last_failure", None) or ("red", "sin respuesta")
+        return f"portada inalcanzable — {texto}"
 
     base = str(getattr(resp, "url", "") or f"https://{d}/")
     html = resp.text or ""
@@ -149,9 +154,11 @@ def probe_api(key: str, cfg: dict, fetcher=None) -> tuple[bool, str]:
     if kind == "gdelt_doc":
         url = (f"{url}?query=%22M%C3%A9xico%22&mode=artlist&format=json"
                f"&maxrecords=5&timespan=1d")
-    resp = (fetcher or PoliteFetcher()).get(url)
+    f = fetcher or PoliteFetcher()
+    resp = f.get(url)
     if not resp:
-        return False, "sin respuesta (bloqueada, caída o robots.txt lo impide)"
+        _, texto = getattr(f, "last_failure", None) or ("red", "sin respuesta")
+        return False, f"sin respuesta — {texto}"
     try:
         if kind == "gdelt_doc":
             items = parse_gdelt(resp.json())
@@ -206,7 +213,10 @@ def _probe_apis_in_background() -> None:
                     rec.consecutive_failures = 0
                     rec.last_error = None
                 else:
-                    rec.consecutive_failures += 1
+                    # el default de la columna solo se aplica al INSERT: en una
+                    # fila recién añadida y aún sin flush, el valor es None y
+                    # `+= 1` reventaba el hilo entero
+                    rec.consecutive_failures = (rec.consecutive_failures or 0) + 1
                     rec.last_error = note[:500]
                 job_db.commit()
 

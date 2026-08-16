@@ -121,7 +121,7 @@ class Collector:
             rec.consecutive_failures = 0
             rec.last_error = None
         else:
-            rec.consecutive_failures += 1
+            rec.consecutive_failures = (rec.consecutive_failures or 0) + 1
             rec.last_error = (error or "")[:500]
 
     # ── descubrimiento RSS (solo URLs verificadas, nunca inventadas) ─────
@@ -633,8 +633,13 @@ class Collector:
                 if leidos:
                     self.mark_source(source.domain, source.name, ok=True)
                 else:
+                    # la causa exacta vale más que «no se pudo»: un 403, un
+                    # robots.txt que nos prohíbe y un dominio muerto piden
+                    # tres acciones distintas — y el segundo, ninguna
+                    fallo = getattr(self.fetcher, "last_failure", None)
+                    motivo = fallo[1] if fallo else "portada sin artículos legibles"
                     self.mark_source(source.domain, source.name, ok=False,
-                                     error="sin flujo; portada sin artículos legibles")
+                                     error=f"sin flujo; {motivo}")
             else:
                 self.mark_source(source.domain, source.name, ok=True)
 
@@ -689,7 +694,7 @@ class Collector:
         home = f"https://{source.domain}/"
         resp = self.fetcher.get(home)
         if not resp:
-            return 0
+            return 0                    # la causa queda en fetcher.last_failure
         # la URL final tras redirecciones (abc.com.py → www.abc.com.py) es la
         # base correcta para resolver los enlaces relativos de la página
         base = str(getattr(resp, "url", "") or home)

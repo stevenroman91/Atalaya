@@ -27,6 +27,26 @@ MAX_ARTICLES = 4000     # techo de seguridad de la consulta
 PER_SOURCE = 40         # enlaces desplegados por fuente y país
 
 
+# Firmas del motivo real, leídas del último error guardado. La lista de
+# «revisar a mano» solo sirve si contiene cosas que se pueden arreglar: un
+# robots.txt que nos prohíbe no se arregla, se acata.
+_CAUSAS = (
+    ("robots", ("robots.txt",)),
+    ("bloqueada", ("nos responde 403", "nos responde 401", "nos responde 429",
+                   "403 Forbidden")),
+    ("dns", ("no resuelve",)),
+    ("tls", ("certificado",)),
+)
+
+
+def _causa(error: str | None) -> str:
+    hay = (error or "").lower()
+    for clave, firmas in _CAUSAS:
+        if any(f.lower() in hay for f in firmas):
+            return clave
+    return "inalcanzable"
+
+
 def _verdict(rec: SourceRecord | None, kept: int, rejected: int) -> tuple[str, str]:
     """(clave de estado, detalle). El estado ordena y colorea; el detalle
     dice qué hacer. Nunca «ok» a secas: «ok» sin artículos es una fuente que
@@ -38,8 +58,8 @@ def _verdict(rec: SourceRecord | None, kept: int, rejected: int) -> tuple[str, s
         # fuente que nunca funcionó y además falla es un caso de fallo
         detalle = f"{rec.consecutive_failures} fallo(s) seguidos"
         if rec.last_error:
-            detalle += f" — {rec.last_error[:120]}"
-        return "inalcanzable", detalle
+            detalle += f" — {rec.last_error[:160]}"
+        return _causa(rec.last_error), detalle
     if rec is None or rec.last_ok_at is None:
         return "sin_datos", "nunca se ha consultado con éxito"
     if rejected:
@@ -47,8 +67,12 @@ def _verdict(rec: SourceRecord | None, kept: int, rejected: int) -> tuple[str, s
     return "sin_material", "responde, pero nada pertinente en la ventana"
 
 
-ORDER = {"inalcanzable": 0, "sin_datos": 1, "sin_material": 2,
-         "filtrado": 3, "produce": 4}
+# Orden de lectura: primero lo que exige una decisión nuestra, al final lo
+# que funciona. `robots` va abajo del bloque de fallos: no hay nada que hacer.
+ORDER = {"dns": 0, "inalcanzable": 1, "bloqueada": 2, "tls": 3, "sin_datos": 4,
+         "robots": 5, "sin_material": 6, "filtrado": 7, "produce": 8}
+# Lo que cuenta como «a revisar a mano»: solo lo accionable.
+ACCIONABLE = ("dns", "inalcanzable", "tls", "sin_datos")
 
 
 @router.get("/cobertura")
@@ -124,8 +148,9 @@ def coverage(request: Request, user_sess=Depends(current_user),
             "rows": filas,
             "events": events.get(code, 0),
             "produce": sum(1 for r in filas if r["estado"] == "produce"),
-            "revisar": sum(1 for r in filas
-                           if r["estado"] in ("inalcanzable", "sin_datos")),
+            "revisar": sum(1 for r in filas if r["estado"] in ACCIONABLE),
+            "bloqueadas": sum(1 for r in filas
+                              if r["estado"] in ("bloqueada", "robots")),
             "total": len(filas),
             "kept": sum(r["kept"] for r in filas),
             "rejected": sum(r["rejected"] for r in filas),
