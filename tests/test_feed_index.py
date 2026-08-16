@@ -163,3 +163,30 @@ def test_la_columna_de_opinion_se_recoge_pero_el_filtro_la_descarta():
     opinion = [u for u, _ in _links() if "/opinion/" in u]
     assert opinion                                   # la portada la enlaza
     assert off_topic_section(opinion[0]) == "opinion"  # y se descarta al ingerir
+
+
+# ── muestras para reparar el filtro sin adivinar ─────────────────────────
+# Tres portadas (ABC Color, Última Hora, Folha) dan cientos de enlaces y
+# cero artículos. Sin ver la forma real de sus URL, corregir el filtro es
+# adivinar — y adivinar ya costó varios despliegues inútiles.
+
+def test_las_rutas_rechazadas_se_exponen_para_diagnostico():
+    html = """
+    <a href="/seccion/">Índice de una sección cualquiera del diario</a>
+    <a href="/n123456">Nota con identificador numérico sin slug alguno</a>
+    <a href="https://otro.com/x/y-z">Enlace saliente que no nos incumbe</a>
+    <a href="/politica/2026/08/16/nota-con-slug/">Un artículo bien formado
+       que sí pasa el filtro y no debe aparecer</a>
+    """
+    rutas = Collector._rejected_paths("https://www.abc.com.py/", html,
+                                      "abc.com.py")
+
+    assert "/seccion/" in rutas
+    assert "/n123456" in rutas
+    assert not any("otro.com" in r for r in rutas)       # solo el propio dominio
+    assert "/politica/2026/08/16/nota-con-slug/" not in rutas  # ese sí pasó
+
+
+def test_las_rutas_rechazadas_no_se_repiten():
+    html = '<a href="/x/">Un enlace repetido tres veces en la portada</a>' * 3
+    assert Collector._rejected_paths("https://x.com/", html, "x.com") == ["/x/"]

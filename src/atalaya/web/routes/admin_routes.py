@@ -118,8 +118,12 @@ def probe_domain(domain: str, fetcher=None) -> str:
         return ("casi sin enlaces en el HTML: portada construida por "
                 "JavaScript — leerla no aportaría nada")
     if not links:
+        # Sin muestras no se puede arreglar el filtro sin adivinar. Se
+        # enseñan rutas reales del propio dominio para ver su forma.
+        muestras = Collector._rejected_paths(base, html, norm_domain(base))[:4]
+        detalle = (" Rutas de ejemplo: " + " · ".join(muestras)) if muestras else ""
         return (f"{anchors} enlaces, pero ninguno con forma de artículo: "
-                "sus URL no encajan con el filtro")
+                f"sus URL no encajan con el filtro.{detalle}")
     if not useful:
         return f"{len(links)} artículos, todos en secciones ajenas a la vigilancia"
     return (f"{anchors} enlaces · {len(links)} con forma de artículo · "

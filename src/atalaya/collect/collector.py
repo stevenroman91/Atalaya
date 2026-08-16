@@ -208,6 +208,27 @@ class Collector:
             out.append((url, title))
         return out
 
+    @classmethod
+    def _rejected_paths(cls, page_url: str, html: str, domain: str) -> list[str]:
+        """Rutas del propio dominio que el filtro descartó, para diagnóstico.
+
+        Cuando una portada da cero artículos hace falta ver la forma real de
+        sus URL: sin muestras, corregir el filtro es adivinar. Se devuelven
+        rutas distintas entre sí para no repetir veinte veces la misma.
+        """
+        out: list[str] = []
+        kept = {u for u, _ in cls._article_links_from_html(page_url, html, domain)}
+        for m in cls._LINK_RE.finditer(html):
+            url = urljoin(page_url, m.group(1).strip()).split("#")[0]
+            if not url.startswith(("http://", "https://")):
+                continue
+            if norm_domain(url) != domain or url in kept:
+                continue
+            path = urlparse(url).path
+            if path and path != "/" and path not in out:
+                out.append(path)
+        return out
+
     def _ingest_html_index(self, page_url: str, html: str, *, run: CollectRun,
                            country: Country, zone: Zone | None,
                            keyword: str | None, theme: str | None,
@@ -241,8 +262,13 @@ class Collector:
                                   theme=theme, cutoff=cutoff,
                                   is_google_news=False):
                 stored += 1
+        self.stats["html_index_stored"] = (
+            self.stats.get("html_index_stored", 0) + stored)
         self.db.commit()
-        return stored
+        # Se devuelve lo LEÍDO, no lo guardado: un artículo ya conocido por
+        # Google News se descarta como duplicado, y eso no significa que la
+        # portada sea inservible.
+        return len(keep)
 
     @staticmethod
     def _absolutize(domain: str, url: str | None) -> str | None:
@@ -541,31 +567,40 @@ class Collector:
             # se movió, el medio no publica flujo utilizable. Antes se daba
             # la fuente por perdida; ahora se lee su portada.
             if self.stats["feeds"] == before:
-                # La lectura de portada está APAGADA por defecto: sin verificar
-                # sobre las páginas reales no sabemos si aporta algo, y cuesta
-                # hasta 25 descargas por fuente. `atalaya probe-home` mide eso
-                # sin escribir nada; se enciende cuando los números lo avalen.
-                if load_schedule().get("collector", {}).get("home_scrape"):
-                    self._scrape_home(source, run=run, country=country, window=window)
-                self.mark_source(source.domain, source.name, ok=False,
-                                 error="el flujo no devolvió entradas")
+                # Sin flujo utilizable: se lee la portada. El diagnóstico del
+                # panel midió 14 medios con portada aprovechable (El Heraldo
+                # 82 artículos, La Tribuna 62, Proceso 51…), así que esto no
+                # es una apuesta: son cifras medidas sobre las páginas reales.
+                if not load_schedule().get("collector", {}).get("home_scrape", True):
+                    self.mark_source(source.domain, source.name, ok=False,
+                                     error="el flujo no devolvió entradas")
+                    continue
+                leidos = self._scrape_home(source, run=run, country=country,
+                                           window=window)
+                # La salud mide si LEÍMOS la fuente, no si trajo novedades:
+                # que todo sea duplicado de Google News es lo normal, no un
+                # fallo. Confundirlo marcaba en rojo fuentes que funcionaban.
+                if leidos:
+                    self.mark_source(source.domain, source.name, ok=True)
+                else:
+                    self.mark_source(source.domain, source.name, ok=False,
+                                     error="sin flujo; portada sin artículos legibles")
             else:
                 self.mark_source(source.domain, source.name, ok=True)
 
     def _scrape_home(self, source, *, run: CollectRun, country: Country,
-                     window: float) -> bool:
-        """Lee la portada de un medio sin flujo. True si aportó artículos."""
+                     window: float) -> int:
+        """Lee la portada de un medio sin flujo. Nº de artículos leídos."""
         home = f"https://{source.domain}/"
         resp = self.fetcher.get(home)
         if not resp:
-            return False
+            return 0
         # la URL final tras redirecciones (abc.com.py → www.abc.com.py) es la
         # base correcta para resolver los enlaces relativos de la página
         base = str(getattr(resp, "url", "") or home)
         return self._ingest_html_index(
             base, resp.text, run=run, country=country, zone=None,
-            keyword=None, theme=None, window_hours=window,
-            max_entries=None) > 0
+            keyword=None, theme=None, window_hours=window, max_entries=None)
 
     def collect_daily(self, run: CollectRun, countries: list[str] | None = None) -> dict:
         sched = load_schedule()["daily"]

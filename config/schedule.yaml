@@ -21,10 +21,11 @@ collector:
   timeout_seconds: 12         # los sitios hostiles que no responden cuestan un timeout completo
   user_agent: "AtalayaBot/1.0 (+vigilancia de seguridad; contacto: admin)"
   max_articles_per_feed: 50
-  # Leer la portada de los medios que no publican ningún flujo. Apagado:
-  # cuesta hasta 25 descargas por fuente y aún no está verificado que esas
-  # portadas traigan artículos utilizables. Medir antes con:
-  #     atalaya probe-home abc.com.py ultimahora.com jornada.com.mx
-  home_scrape: false
+  # Leer la portada de los medios que no publican ningún flujo. Encendido
+  # tras medirlo con «Diagnosticar todas» en el panel: 14 medios tienen
+  # portada aprovechable (El Heraldo 82 artículos pertinentes, La Tribuna
+  # 62, Proceso 51, La Nación PY 51, El Economista 50…). Apagarlo aquí si
+  # alguna vez cuesta más de lo que aporta.
+  home_scrape: true
   parallel_workers: 4          # países en paralelo (1 = secuencial); la cortesía por host se mantiene
   source_failure_alert_days: 3 # fuente inalcanzable N días seguidos → visible en admin
