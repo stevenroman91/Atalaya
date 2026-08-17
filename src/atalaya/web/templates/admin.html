@@ -163,10 +163,14 @@
   </table></div>
   <h4>Runs</h4>
   <div class="tablewrap"><table>
-    <thead><tr><th>Job</th><th>Inicio</th><th>Fin</th><th>OK</th><th>Stats</th></tr></thead>
+    <thead><tr><th>Job</th><th>Origen</th><th>Inicio</th><th>Fin</th><th>OK</th><th>Stats</th></tr></thead>
     <tbody>
+    {# «¿Se lanzó sola?» no se podía contestar: el origen estaba en las stats,
+       detrás del truncado. Es la primera pregunta cuando el panel se queda
+       quieto — merece su columna. #}
     {% for r in runs %}
     <tr><td>{{ r.kind }}</td>
+        <td><span class="tag">{{ (r.stats or {}).get('origin', '?') }}</span></td>
         <td>{{ r.started_at.strftime('%Y-%m-%d %H:%M') }}</td>
         <td>{{ r.finished_at.strftime('%Y-%m-%d %H:%M') if r.finished_at else '…' }}</td>
         <td>{{ '✔' if r.ok else ('✖' if r.ok is false else '…') }}</td>
