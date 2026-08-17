@@ -1,8 +1,13 @@
 # Horarios de los jobs (interpretados en la zona horaria indicada).
-# En Railway estos valores se reflejan en el cronSchedule de cada servicio
-# (ver README §Despliegue) — Railway usa UTC, la conversión está documentada.
+# ESTOS valores son los que aplica el planificador interno del servicio web
+# (jobs/scheduler.py): son la fuente de verdad. Los `railway/cron-*.json`
+# repiten los mismos horarios en UTC para el día en que existan servicios de
+# cron; si se crean, los dos mecanismos no se duplican — el primero que
+# corre satisface el horario. Cambiar uno sin el otro solo adelanta o
+# retrasa la colecta, nunca la duplica.
 daily:
-  cron: "0 6 * * *"            # 06:00 America/Mexico_City
+  cron: "0 3,6,12 * * *"       # 03:00, 06:00 y 12:00 America/Mexico_City
+                               # = 09:00, 12:00 y 18:00 UTC
   timezone: "America/Mexico_City"
   window_hours: 24
   overlap_hours: 2             # ventana deslizante 24h + 2h de solape
@@ -14,6 +19,12 @@ weekly:
 monthly:
   cron: "0 7 1 * *"            # día 1 a las 07:00
   timezone: "America/Mexico_City"
+# El planificador interno del servicio web. Apagable sin desplegar con
+# ATALAYA_SCHEDULER=off — por ejemplo el día que existan servicios de cron
+# de Railway, o para parar las colectas sin parar el sitio.
+scheduler:
+  enabled: true
+  poll_seconds: 60
 collector:
   request_delay_seconds: 1.5   # cortesía entre peticiones al mismo host
   per_host_delay_seconds:      # excepciones (infraestructuras de gran capacidad)

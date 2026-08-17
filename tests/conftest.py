@@ -5,6 +5,8 @@ _tmpdir = tempfile.mkdtemp(prefix="atalaya-test-")
 os.environ["DATABASE_URL"] = f"sqlite:///{_tmpdir}/test.db"
 os.environ["ATALAYA_INSECURE_COOKIES"] = "1"
 os.environ.setdefault("ATALAYA_TRANSLATE", "none")
+# Ningún test debe lanzar una colecta de verdad porque haya montado la app.
+os.environ.setdefault("ATALAYA_SCHEDULER", "off")
 
 import pytest  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402

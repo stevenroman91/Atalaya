@@ -19,10 +19,11 @@ log = logging.getLogger(__name__)
 
 
 def _mark_interrupted_manual_runs() -> None:
-    """Las colectas manuales corren en un hilo de ESTE proceso: si el proceso
-    murió (redeploy, crash), su run queda huérfano con finished_at NULL y el
-    botón de admin aparecería bloqueado. Al arrancar se marcan como
-    interrumpidas. Los runs de cron viven en otros contenedores y no se tocan.
+    """Las colectas manuales y las del planificador corren en un hilo de ESTE
+    proceso: si el proceso murió (redeploy, crash), su run queda huérfano con
+    finished_at NULL y el botón de admin aparecería bloqueado. Al arrancar se
+    marcan como interrumpidas. Los runs de cron viven en otros contenedores y
+    no se tocan.
     """
     from sqlalchemy import select
 
@@ -34,11 +35,11 @@ def _mark_interrupted_manual_runs() -> None:
                 select(CollectRun).where(CollectRun.finished_at.is_(None))).all()
             for run in orphans:
                 origin = (run.stats or {}).get("origin")
-                # "manual": lanzado por un hilo de este proceso → huérfano seguro.
-                # None: run heredado de una versión sin marcado de origen →
-                # se limpia también (transición puntual; el código actual
-                # siempre marca el origen).
-                if origin == "manual" or origin is None:
+                # "manual"/"scheduler": lanzados por un hilo de este proceso →
+                # huérfanos seguros. None: run heredado de una versión sin
+                # marcado de origen → se limpia también (transición puntual;
+                # el código actual siempre marca el origen).
+                if origin in ("manual", "scheduler", None):
                     run.finished_at = utcnow()
                     run.ok = False
                     run.stats = {**(run.stats or {}), "interrupted": True}
@@ -50,6 +51,11 @@ def _mark_interrupted_manual_runs() -> None:
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
     _mark_interrupted_manual_runs()
+    # Los jobs se lanzan solos desde aquí. Ver jobs/scheduler.py: los
+    # servicios de cron de Railway nunca llegaron a existir y la vigilancia
+    # dependía de que alguien pulsara un botón.
+    from atalaya.jobs.scheduler import start as start_scheduler
+    start_scheduler()
     yield
 
 

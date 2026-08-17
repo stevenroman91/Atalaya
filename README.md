@@ -108,11 +108,22 @@ les services), `railway.json` (service web) et `railway/cron-*.json`.
    `ATALAYA_ADMIN_PASSWORD`, `ATALAYA_BASE_URL` (l'URL publique Railway, ex.
    `https://atalaya-production.up.railway.app`), et `ANTHROPIC_API_KEY` si
    traductions.
-4. **Services cron** — **3 services Railway supplémentaires**, créés depuis le
-   même dépôt (*New → GitHub Repo* → ce dépôt, une fois par service). Le
-   fichier `railway/cron-*.json` ne crée aucun service à lui seul : sans ces
-   trois services, rien ne se déclenche jamais et seules les collectes
-   lancées à la main depuis `/admin` tournent. Pour chacun,
+4. **Planification** — rien à faire : le service web porte son propre
+   planificateur (`jobs/scheduler.py`), qui lit les horaires de
+   `config/schedule.yaml` et lance les jobs lui-même. Il ne dort pas jusqu'à
+   l'heure suivante : il compare l'horloge et la base, donc un créneau raté
+   pendant un redéploiement est rattrapé au démarrage suivant. `/admin`
+   affiche l'origine de chaque collecte — `scheduler`, `manual` ou `cron`.
+   Pour l'éteindre : `ATALAYA_SCHEDULER=off`.
+
+   *Option* — **3 services Railway cron** à la place, si l'on préfère que les
+   collectes tournent hors du conteneur web (elles y prennent une demi-heure
+   de CPU et de réseau). Ce sont trois services supplémentaires créés depuis
+   le même dépôt (*New → GitHub Repo* → ce dépôt, une fois par service) ; le
+   fichier `railway/cron-*.json` ne crée aucun service à lui seul. Les deux
+   mécanismes cohabitent sans doubler les collectes — le premier qui tourne
+   satisfait le créneau — mais autant couper le planificateur interne une
+   fois les crons vérifiés. Pour chacun,
    *Settings → Config-as-code file* :
    - `railway/cron-daily.json` — 9:00, 12:00 et 18:00 UTC = **03:00, 06:00 et
      12:00 Mexico** (America/Mexico_City est UTC-6 toute l'année depuis 2022)
