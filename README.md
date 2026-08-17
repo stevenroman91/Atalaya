@@ -108,15 +108,26 @@ les services), `railway.json` (service web) et `railway/cron-*.json`.
    `ATALAYA_ADMIN_PASSWORD`, `ATALAYA_BASE_URL` (l'URL publique Railway, ex.
    `https://atalaya-production.up.railway.app`), et `ANTHROPIC_API_KEY` si
    traductions.
-4. **Services cron** (3 services supplémentaires depuis le même repo) :
-   pour chacun, *Settings → Config-as-code file* :
-   - `railway/cron-daily.json` — quotidien 12:00 UTC = **06:00 Mexico**
-     (America/Mexico_City est UTC-6 toute l'année depuis 2022)
+4. **Services cron** — **3 services Railway supplémentaires**, créés depuis le
+   même dépôt (*New → GitHub Repo* → ce dépôt, une fois par service). Le
+   fichier `railway/cron-*.json` ne crée aucun service à lui seul : sans ces
+   trois services, rien ne se déclenche jamais et seules les collectes
+   lancées à la main depuis `/admin` tournent. Pour chacun,
+   *Settings → Config-as-code file* :
+   - `railway/cron-daily.json` — 9:00, 12:00 et 18:00 UTC = **03:00, 06:00 et
+     12:00 Mexico** (America/Mexico_City est UTC-6 toute l'année depuis 2022)
    - `railway/cron-weekly.json` — vendredi 13:00 UTC = 07:00 Mexico
    - `railway/cron-monthly.json` — le 1er, 13:00 UTC = 07:00 Mexico
-   Chaque service cron a besoin de `DATABASE_URL` (+ `ANTHROPIC_API_KEY` pour
-   le quotidien si traductions). Railway lance le conteneur à l'horaire, la
-   commande s'exécute puis le conteneur s'arrête (`restartPolicyType: NEVER`).
+   Chaque service cron a besoin de `DATABASE_URL`, et le quotidien de
+   `ANTHROPIC_API_KEY` — il porte les traductions **et le classificateur de
+   pertinence**. Sans la clé, la collecte tourne quand même mais sans
+   classifier : le panneau se remplit alors de faits non securitaires que les
+   collectes manuelles, elles, écartaient. Railway lance le conteneur à
+   l'horaire, la commande s'exécute puis le conteneur s'arrête
+   (`restartPolicyType: NEVER`).
+
+   Vérification : la table **Runs** de `/admin` affiche l'origine de chaque
+   collecte. Tant qu'on n'y voit que `manual`, les crons ne tournent pas.
 5. **Domaine** : Railway fournit HTTPS automatiquement (les cookies `Secure`
    et HSTS fonctionnent sans configuration).
 
